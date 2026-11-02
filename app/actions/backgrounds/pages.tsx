@@ -151,7 +151,7 @@ export function UploadPage(
   handle: Handle<{
     user: Identity
     locations: LocationSummary[]
-    values?: { title?: string; location?: string; description?: string }
+    values?: { title?: string; location?: string; description?: string; boomerang?: boolean }
     errors?: FieldErrors
   }>,
 ) {
@@ -217,6 +217,34 @@ export function UploadPage(
               ))}
             </datalist>
           </Field>
+          <div class="field">
+            <label class="checkbox">
+              <input type="checkbox" name="boomerang" checked={values.boomerang ?? false} />
+              Seamless loop for animated GIFs
+            </label>
+            <span class="hint">
+              Plays the clip forward, then backward, so there’s no jump when it repeats. It plays
+              twice as long, so keep the clip to about 5 seconds.
+            </span>
+          </div>
+          <details class="tips">
+            <summary>Tips for animated backgrounds</summary>
+            <ul>
+              <li>
+                Put the camera down on something. A handheld clip shakes, and then every pixel
+                changes in every frame.
+              </li>
+              <li>
+                Film gentle movement: a screen, a plant, light, people far away. Up to 10 seconds,
+                or 5 seconds with a seamless loop.
+              </li>
+              <li>
+                Convert the video to a GIF (Photo Booth movies too). We trim it to 16:9 at 1280×720
+                and about 15 frames a second.
+              </li>
+              <li>Processing a GIF can take up to a minute.</li>
+            </ul>
+          </details>
           <Field label="Description (optional)" name="description" error={errors.description}>
             <textarea
               id="description"

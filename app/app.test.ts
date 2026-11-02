@@ -36,24 +36,35 @@ async function photo(width: number, height: number) {
   return new File([new Uint8Array(bytes)], 'office.jpg', { type: 'image/jpeg' })
 }
 
-async function animatedGif(width: number, height: number, frames: number) {
-  let pages = []
+/** A GIF of solid-colour frames, each shown for `delay` ms. */
+async function animatedGif(width: number, height: number, frames: number, delay = 100) {
+  let frameBytes = width * height * 3
+  let raw = Buffer.alloc(frameBytes * frames)
   for (let i = 0; i < frames; i++) {
-    pages.push(
-      await sharp({
-        create: { width, height, channels: 3, background: { r: 30 * i, g: 90, b: 200 } },
-      })
-        .png()
-        .toBuffer(),
+    // Clearly different colours, so the encoder doesn't merge frames that
+    // barely changed.
+    raw.fill(
+      Buffer.from([(80 * i) % 256, (200 - 50 * i + 256) % 256, (40 + 120 * i) % 256]),
+      i * frameBytes,
+      (i + 1) * frameBytes,
     )
   }
-  let bytes =
+  let image =
     frames === 1
-      ? await sharp(pages[0]).gif().toBuffer()
-      : await sharp(pages, { join: { animated: true } })
-          .gif({ delay: 100, loop: 0 })
-          .toBuffer()
+      ? sharp(raw, { raw: { width, height, channels: 3 } }).gif()
+      : sharp(raw, {
+          raw: { width, height: height * frames, channels: 3, pageHeight: height },
+        }).gif({
+          delay: Array(frames).fill(delay),
+          loop: 0,
+          effort: 1,
+        })
+  let bytes = await image.toBuffer()
   return new File([new Uint8Array(bytes)], 'loop.gif', { type: 'image/gif' })
+}
+
+async function gifMeta(response: Response) {
+  return sharp(new Uint8Array(await response.arrayBuffer()), { animated: true }).metadata()
 }
 
 async function signUp(request: ReturnType<typeof browser>, email: string) {
@@ -191,6 +202,68 @@ describe('office backdrops', () => {
 
     let download = await request(`${showPath}/download`)
     assert.match(download.headers.get('Content-Disposition') ?? '', /lyon-lift-doors\.gif/)
+  })
+
+  it('thins a 30 fps clip to about 15 fps and keeps its length', async () => {
+    let request = browser()
+    await signUp(request, 'fps@example.com')
+    let upload = await request(
+      '/upload',
+      form({ photo: await animatedGif(640, 360, 20, 33), title: 'Booth', location: 'Lyon' }),
+    )
+    assert.equal(upload.status, 303)
+    let id = upload.headers.get('Location')!.split('/').pop()!
+    let meta = await gifMeta(await request(`/images/${id}.gif`))
+    assert.equal(meta.pages, 10)
+    let length = (meta.delay ?? []).reduce((sum, ms) => sum + ms, 0)
+    assert.equal(length, 600) // 20 frames × 30 ms (GIF stores hundredths of a second)
+    assert.equal((await gifMeta(await request(`/images/${id}.webp`))).pages, 10)
+  })
+
+  it('adds the frames in reverse for a seamless loop', async () => {
+    let request = browser()
+    await signUp(request, 'loop@example.com')
+    let upload = await request(
+      '/upload',
+      form({
+        photo: await animatedGif(640, 360, 4),
+        title: 'Loop',
+        location: 'Lyon',
+        boomerang: 'on',
+      }),
+    )
+    assert.equal(upload.status, 303)
+    let id = upload.headers.get('Location')!.split('/').pop()!
+    let meta = await gifMeta(await request(`/images/${id}.gif`))
+    assert.equal(meta.pages, 6) // 1 2 3 4 3 2, then it repeats
+    assert.equal((await gifMeta(await request(`/images/${id}.webp`))).pages, 6)
+  })
+
+  it('rejects clips that are too long, saying why', async () => {
+    let request = browser()
+    await signUp(request, 'long@example.com')
+    let response = await request(
+      '/upload',
+      form({ photo: await animatedGif(640, 360, 200, 100), title: 'Long', location: 'Lyon' }),
+    )
+    assert.equal(response.status, 400)
+    assert.match(await response.text(), /20 seconds long\. Keep it to about 10 seconds/)
+  })
+
+  it('allows half as long a clip with a seamless loop', async () => {
+    let request = browser()
+    await signUp(request, 'longloop@example.com')
+    let response = await request(
+      '/upload',
+      form({
+        photo: await animatedGif(640, 360, 80, 70),
+        title: 'Long loop',
+        location: 'Lyon',
+        boomerang: 'on',
+      }),
+    )
+    assert.equal(response.status, 400)
+    assert.match(await response.text(), /keep it to about 5 seconds/)
   })
 
   it('treats a single-frame GIF as a photo', async () => {

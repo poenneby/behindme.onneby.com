@@ -28,8 +28,22 @@ export const ANIMATED_WIDTH = 1280
 export const ANIMATED_HEIGHT = 720
 export const ANIMATED_MIN_WIDTH = 640
 export const ANIMATED_MIN_HEIGHT = 360
-export const MAX_FRAMES = 300
+/** About 10 seconds of a 30 fps recording such as Photo Booth's. */
+export const MAX_INPUT_FRAMES = 300
+/** Frames are thinned to about 15 fps: smooth enough for a background, half the size. */
+export const TARGET_FRAME_MS = 66
+/**
+ * Frames in the finished GIF, seamless loop included. Encoding costs about a
+ * quarter of a second per 720p frame, and uploads must finish well within
+ * Cloudflare's 100-second request limit.
+ */
+export const MAX_OUTPUT_FRAMES = 150
 export const MAX_ANIMATED_BYTES = 15 * 1024 * 1024
+
+export interface UploadOptions {
+  /** Play an animation forward, then backward, so it loops with no jump. */
+  boomerang?: boolean
+}
 
 export type ImageVariant = 'full' | 'thumb' | 'preview'
 
@@ -75,7 +89,11 @@ export class ImageRejectedError extends Error {}
  *   first frame), and an animated WebP preview. Single-frame GIFs are
  *   treated as photos.
  */
-export async function processUpload(id: string, file: File): Promise<{ animated: boolean }> {
+export async function processUpload(
+  id: string,
+  file: File,
+  options: UploadOptions = {},
+): Promise<{ animated: boolean }> {
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new ImageRejectedError('That file is over 25 MB.')
   }
@@ -95,7 +113,7 @@ export async function processUpload(id: string, file: File): Promise<{ animated:
   let written: string[] = []
   try {
     if (animated) {
-      await processAnimated(id, input, metadata, written)
+      await oneAtATime(() => processAnimated(id, input, metadata, written, options))
     } else {
       await processStill(id, input, metadata, written)
     }
@@ -141,13 +159,40 @@ async function processStill(id: string, input: Buffer, metadata: Metadata, writt
   await oriented.clone().resize(960, 540, cover).webp({ quality: 78 }).toFile(preview)
 }
 
-async function processAnimated(id: string, input: Buffer, metadata: Metadata, written: string[]) {
-  let frames = metadata.pages ?? 1
+// Decoding a clip holds every frame in memory (about 2.7 MB per 720p frame),
+// so animated uploads are processed one at a time.
+let animatedQueue: Promise<unknown> = Promise.resolve()
+function oneAtATime<T>(task: () => Promise<T>): Promise<T> {
+  let run = animatedQueue.then(task, task)
+  animatedQueue = run.catch(() => {})
+  return run
+}
+
+/**
+ * Turns a GIF (typically a converted camera clip) into a compact looping
+ * background:
+ *
+ * 1. Decode every frame once, cropped to 16:9 at 1280×720 around the centre.
+ * 2. Thin to about 15 fps, keeping the total length.
+ * 3. Optionally append the frames in reverse for a seamless boomerang loop.
+ * 4. Encode without dithering, and let pixels that barely changed since the
+ *    previous frame show through (`interFrameMaxError`). In a mostly still
+ *    office shot that removes the camera's sensor noise, which is what
+ *    makes GIFs of real footage huge: a 95 MB test clip came out at 5.5 MB.
+ */
+async function processAnimated(
+  id: string,
+  input: Buffer,
+  metadata: Metadata,
+  written: string[],
+  options: UploadOptions,
+) {
+  let frameCount = metadata.pages ?? 1
   let width = metadata.width
   let height = metadata.pageHeight ?? metadata.height
-  if (frames > MAX_FRAMES) {
+  if (frameCount > MAX_INPUT_FRAMES) {
     throw new ImageRejectedError(
-      `That GIF has ${frames} frames. Keep it to ${MAX_FRAMES} or fewer.`,
+      `That GIF has ${frameCount} frames. Keep clips to about 10 seconds (${MAX_INPUT_FRAMES} frames at most).`,
     )
   }
   if (!width || !height || width < ANIMATED_MIN_WIDTH || height < ANIMATED_MIN_HEIGHT) {
@@ -155,20 +200,88 @@ async function processAnimated(id: string, input: Buffer, metadata: Metadata, wr
       `The GIF is ${width}×${height}. Animated backgrounds need at least ${ANIMATED_MIN_WIDTH}×${ANIMATED_MIN_HEIGHT}.`,
     )
   }
+  if (width > 4096 || height > 4096) {
+    throw new ImageRejectedError(`The GIF is ${width}×${height}. Keep it under 4096×4096.`)
+  }
 
-  // Every frame, cropped to 16:9 around the centre (smart cropping doesn't
-  // apply to animations).
-  let frames16x9 = () =>
-    sharp(input, { animated: true, failOn: 'error', limitInputPixels: 500_000_000 })
-  let cover = { fit: 'cover' as const }
+  // Browsers play delays of 10 ms or less at 100 ms; do the same. Some GIFs
+  // store a single delay for every frame.
+  let delayAt = (i: number) => {
+    let delay = metadata.delay?.[i] ?? metadata.delay?.[0] ?? 100
+    return delay <= 10 ? 100 : delay
+  }
 
-  let gif = await frames16x9()
-    .resize(ANIMATED_WIDTH, ANIMATED_HEIGHT, cover)
-    .gif({ effort: 5 })
+  // Work out which frames to keep from the metadata alone, so a clip that's
+  // too long is rejected before anything is decoded.
+  let totalMs = 0
+  for (let i = 0; i < frameCount; i++) totalMs += delayAt(i)
+  let step = Math.max(1, Math.round(TARGET_FRAME_MS / (totalMs / frameCount)))
+  let keep: number[] = []
+  for (let i = 0; i < frameCount; i += step) keep.push(i)
+  let boomerang = Boolean(options.boomerang) && keep.length > 2
+  let outputFrames = boomerang ? 2 * keep.length - 2 : keep.length
+  if (outputFrames > MAX_OUTPUT_FRAMES) {
+    let seconds = (totalMs / 1000).toFixed(0)
+    throw new ImageRejectedError(
+      boomerang
+        ? `That clip is ${seconds} seconds long. With a seamless loop it plays twice, so keep it to about 5 seconds.`
+        : `That clip is ${seconds} seconds long. Keep it to about 10 seconds.`,
+    )
+  }
+  let delays = keep.map((frame, k) => {
+    let end = keep[k + 1] ?? frameCount
+    let ms = 0
+    for (let j = frame; j < end; j++) ms += delayAt(j)
+    return ms
+  })
+
+  let W = ANIMATED_WIDTH
+  let H = ANIMATED_HEIGHT
+  let frameBytes = W * H * 3
+  let frames = await sharp(input, { animated: true, failOn: 'error', limitInputPixels: false })
+    .resize(W, H, { fit: 'cover' })
+    .removeAlpha()
+    .raw()
+    .toBuffer()
+  if (frames.length !== frameCount * frameBytes) {
+    throw new ImageRejectedError('That GIF’s frames couldn’t be read. Try exporting it again.')
+  }
+
+  // Move the kept frames to the front of the buffer instead of copying them.
+  keep.forEach((frame, k) => {
+    if (frame !== k)
+      frames.copy(frames, k * frameBytes, frame * frameBytes, (frame + 1) * frameBytes)
+  })
+  let count = keep.length
+  let forward = frames.subarray(0, count * frameBytes)
+
+  let clip = forward
+  let clipDelays = delays
+  if (boomerang) {
+    // Forward, then backward without repeating the first and last frames.
+    let backward = count - 2
+    clip = Buffer.alloc((count + backward) * frameBytes)
+    forward.copy(clip, 0)
+    for (let b = 0; b < backward; b++) {
+      let source = count - 2 - b
+      forward.copy(clip, (count + b) * frameBytes, source * frameBytes, (source + 1) * frameBytes)
+    }
+    clipDelays = [...delays, ...delays.slice(1, -1).reverse()]
+  }
+  let clipFrames = clipDelays.length
+  let raw = (buffer: Buffer, pages: number) =>
+    sharp(buffer, { raw: { width: W, height: H * pages, channels: 3, pageHeight: H } })
+
+  let gif = await raw(clip, clipFrames)
+    .gif({ effort: 1, dither: 0, interFrameMaxError: 16, delay: clipDelays, loop: 0 })
     .toBuffer()
   if (gif.length > MAX_ANIMATED_BYTES) {
+    let mb = (gif.length / 1024 / 1024).toFixed(0)
+    let tips = options.boomerang
+      ? 'Try a shorter clip, or turn off the seamless loop.'
+      : 'Try a shorter clip, and keep the camera still.'
     throw new ImageRejectedError(
-      `That GIF is ${Math.round(gif.length / 1024 / 1024)} MB at ${ANIMATED_WIDTH}×${ANIMATED_HEIGHT}. Keep it under ${MAX_ANIMATED_BYTES / 1024 / 1024} MB by making it shorter or simpler.`,
+      `That came out at ${mb} MB, over the ${MAX_ANIMATED_BYTES / 1024 / 1024} MB limit. ${tips}`,
     )
   }
   let full = path.join(imagesDir, imageFileName(id, 'full', true))
@@ -178,14 +291,20 @@ async function processAnimated(id: string, input: Buffer, metadata: Metadata, wr
   // A still thumbnail from the first frame: Teams only shows it in the picker.
   let thumb = path.join(imagesDir, imageFileName(id, 'thumb', true))
   written.push(thumb)
-  await sharp(input, { failOn: 'error' })
-    .resize(THUMB_WIDTH, THUMB_HEIGHT, cover)
+  await sharp(forward.subarray(0, frameBytes), { raw: { width: W, height: H, channels: 3 } })
+    .resize(THUMB_WIDTH, THUMB_HEIGHT, { fit: 'cover' })
     .png()
     .toFile(thumb)
 
   let preview = path.join(imagesDir, imageFileName(id, 'preview', true))
   written.push(preview)
-  await frames16x9().resize(960, 540, cover).webp({ quality: 70 }).toFile(preview)
+  // From the finished GIF: sharp only resizes frame by frame when it loaded
+  // an animation itself. Resizing the raw frames would squash them into one.
+  // 640×360 is plenty for gallery cards, and much quicker than 960×540.
+  await sharp(gif, { animated: true })
+    .resize(640, 360)
+    .webp({ quality: 60, effort: 2, loop: 0 })
+    .toFile(preview)
 }
 
 /** Removes every variant we might have written for this id, still or animated. */

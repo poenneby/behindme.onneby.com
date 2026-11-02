@@ -155,3 +155,9 @@ main { padding: 32px 0 64px; }
   background: var(--accent); color: var(--accent-ink);
 }
 .panel h1 .badge { font-size: 12px; position: relative; top: -2px; }
+
+.field .checkbox { display: flex; gap: 8px; align-items: center; font-weight: 600; font-size: 14px; }
+.field .checkbox input { width: auto; }
+.tips { font-size: 14px; color: var(--muted); }
+.tips summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.tips ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
