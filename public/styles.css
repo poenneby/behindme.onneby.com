@@ -156,8 +156,7 @@ main { padding: 32px 0 64px; }
 }
 .panel h1 .badge { font-size: 12px; position: relative; top: -2px; }
 
-.field .checkbox { display: flex; gap: 8px; align-items: center; font-weight: 600; font-size: 14px; }
-.field .checkbox input { width: auto; }
-.tips { font-size: 14px; color: var(--muted); }
-.tips summary { cursor: pointer; font-weight: 600; color: var(--text); }
-.tips ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.prose pre { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+.prose pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+.prose h3 { margin: 20px 0 4px; font-size: 17px; }
+.field .hint a { color: inherit; }

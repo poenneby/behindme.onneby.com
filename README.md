@@ -52,14 +52,10 @@ Animated backgrounds are GIFs, kept at 1280×720. Teams plays a GIF renamed to
 `.png`, so the scripts install them as `<guid>.png` with a still
 `<guid>_thumb.png`.
 
-GIFs of real footage are huge because camera noise changes every pixel in
-every frame. On upload, `app/images.ts` thins clips to about 15 fps and
-encodes them without dithering, letting pixels that barely changed show
-through from the previous frame. That shrinks a still office shot to a
-fraction of its size: a 5-second, 11.5 MB camera GIF comes out at 1.3 MB. An
-optional seamless loop plays the clip forward, then backward. Clips are capped
-at 150 output frames (10 seconds, or 5 with the loop), so processing stays
-well under Cloudflare's 100-second request limit.
+GIFs are stored and installed exactly as uploaded: making a small,
+good-looking GIF is up to the person sharing it. The `/animated` page explains
+how, with free tools (ezgif, Gifski, ffmpeg). Only the first frame is decoded,
+for the thumbnail and gallery preview.
 The folder paths are undocumented by Microsoft and could move in a Teams
 update. `/teams` in the app explains the alternatives to users.
 

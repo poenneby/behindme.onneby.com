@@ -5,7 +5,6 @@ import type { Identity } from '../../data/users.ts'
 import {
   ANIMATED_MIN_HEIGHT,
   ANIMATED_MIN_WIDTH,
-  fullSize,
   imageHref,
   MIN_HEIGHT,
   MIN_WIDTH,
@@ -44,11 +43,9 @@ export function ShowPage(
         share={{
           path: routes.backgrounds.show.href({ id: bg.id }),
           description: `${bg.locationName}, shared by ${bg.authorName}. Add it to Microsoft Teams with one command.`,
-          image: {
-            path: imageHref(bg.id, 'full', bg.animated),
-            ...fullSize(bg.animated),
-            alt: bg.title,
-          },
+          image: bg.animated
+            ? { path: imageHref(bg.id, 'full', true), alt: bg.title }
+            : { path: imageHref(bg.id, 'full'), width: 1920, height: 1080, alt: bg.title },
         }}
       >
         <div class="detail">
@@ -57,8 +54,8 @@ export function ShowPage(
               <img
                 src={imageHref(bg.id, 'full', bg.animated)}
                 alt={bg.title}
-                width={String(fullSize(bg.animated).width)}
-                height={String(fullSize(bg.animated).height)}
+                width={bg.animated ? undefined : '1920'}
+                height={bg.animated ? undefined : '1080'}
               />
             </div>
             {bg.description ? <p style={{ margin: 0 }}>{bg.description}</p> : null}
@@ -82,9 +79,7 @@ export function ShowPage(
               <Stars rating={bg.rating} count={bg.ratingCount} />
               <div class="row">
                 <a class="btn btn-primary" href={routes.backgrounds.download.href({ id: bg.id })}>
-                  {bg.animated
-                    ? `Download GIF ${fullSize(true).width}×${fullSize(true).height}`
-                    : `Download ${fullSize(false).width}×${fullSize(false).height}`}
+                  {bg.animated ? 'Download GIF' : 'Download 1920×1080'}
                 </a>
               </div>
             </div>
@@ -151,7 +146,7 @@ export function UploadPage(
   handle: Handle<{
     user: Identity
     locations: LocationSummary[]
-    values?: { title?: string; location?: string; description?: string; boomerang?: boolean }
+    values?: { title?: string; location?: string; description?: string }
     errors?: FieldErrors
   }>,
 ) {
@@ -176,7 +171,14 @@ export function UploadPage(
             label="Photo"
             name="photo"
             error={errors.photo}
-            hint={`JPEG, PNG, WebP or HEIC at least ${MIN_WIDTH}×${MIN_HEIGHT}, or an animated GIF at least ${ANIMATED_MIN_WIDTH}×${ANIMATED_MIN_HEIGHT}. Up to 25 MB. Photos are cropped to 16:9 at 1920×1080, GIFs at 1280×720, and location data is removed.`}
+            hint={
+              <>
+                A JPEG, PNG, WebP or HEIC photo at least {MIN_WIDTH}×{MIN_HEIGHT}, or an animated
+                GIF at least {ANIMATED_MIN_WIDTH}×{ANIMATED_MIN_HEIGHT}, up to 25 MB. Photos are
+                cropped to 16:9 at 1920×1080 and location data is removed. GIFs are used exactly as
+                you upload them: <a href={routes.animatedHelp.href()}>how to make a good one</a>.
+              </>
+            }
           >
             <input
               id="photo"
@@ -217,34 +219,6 @@ export function UploadPage(
               ))}
             </datalist>
           </Field>
-          <div class="field">
-            <label class="checkbox">
-              <input type="checkbox" name="boomerang" checked={values.boomerang ?? false} />
-              Seamless loop for animated GIFs
-            </label>
-            <span class="hint">
-              Plays the clip forward, then backward, so there’s no jump when it repeats. It plays
-              twice as long, so keep the clip to about 5 seconds.
-            </span>
-          </div>
-          <details class="tips">
-            <summary>Tips for animated backgrounds</summary>
-            <ul>
-              <li>
-                Put the camera down on something. A handheld clip shakes, and then every pixel
-                changes in every frame.
-              </li>
-              <li>
-                Film gentle movement: a screen, a plant, light, people far away. Up to 10 seconds,
-                or 5 seconds with a seamless loop.
-              </li>
-              <li>
-                Convert the video to a GIF (Photo Booth movies too). We trim it to 16:9 at 1280×720
-                and about 15 frames a second.
-              </li>
-              <li>Processing a GIF can take up to a minute.</li>
-            </ul>
-          </details>
           <Field label="Description (optional)" name="description" error={errors.description}>
             <textarea
               id="description"

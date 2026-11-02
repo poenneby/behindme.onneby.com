@@ -161,12 +161,13 @@ describe('office backdrops', () => {
     assert.equal((await owner(`/images/${id}.jpg`)).status, 404)
   })
 
-  it('keeps animated GIFs animated and installs them as .png', async () => {
+  it('stores animated GIFs exactly as uploaded and installs them as .png', async () => {
     let request = browser()
     await signUp(request, 'gif@example.com')
+    let original = await animatedGif(800, 600, 4)
     let upload = await request(
       '/upload',
-      form({ photo: await animatedGif(800, 600, 4), title: 'Lift doors', location: 'Lyon' }),
+      form({ photo: original, title: 'Lift doors', location: 'Lyon' }),
     )
     assert.equal(upload.status, 303)
     let showPath = upload.headers.get('Location')!
@@ -174,11 +175,11 @@ describe('office backdrops', () => {
 
     let gif = await request(`/images/${id}.gif`)
     assert.equal(gif.status, 200)
-    let meta = await sharp(new Uint8Array(await gif.arrayBuffer()), { animated: true }).metadata()
-    assert.equal(meta.format, 'gif')
-    assert.equal(meta.pages, 4)
-    assert.equal(meta.width, 1280)
-    assert.equal(meta.pageHeight, 720)
+    // Byte for byte what was uploaded: no resizing or re-encoding.
+    assert.deepEqual(
+      new Uint8Array(await gif.arrayBuffer()),
+      new Uint8Array(await original.arrayBuffer()),
+    )
 
     let thumb = await sharp(
       new Uint8Array(await (await request(`/images/${id}_thumb.png`)).arrayBuffer()),
@@ -186,11 +187,10 @@ describe('office backdrops', () => {
     assert.equal(thumb.format, 'png')
     assert.equal(thumb.width, 280)
 
-    let preview = await sharp(
-      new Uint8Array(await (await request(`/images/${id}.webp`)).arrayBuffer()),
-      { animated: true },
-    ).metadata()
-    assert.equal(preview.pages, 4)
+    // The gallery preview is a still of the first frame.
+    let preview = await gifMeta(await request(`/images/${id}.webp`))
+    assert.equal(preview.format, 'webp')
+    assert.equal(preview.pages ?? 1, 1)
 
     assert.match(await (await request(showPath)).text(), /Animated/)
 
@@ -204,66 +204,15 @@ describe('office backdrops', () => {
     assert.match(download.headers.get('Content-Disposition') ?? '', /lyon-lift-doors\.gif/)
   })
 
-  it('thins a 30 fps clip to about 15 fps and keeps its length', async () => {
+  it('rejects animated GIFs that are too small', async () => {
     let request = browser()
-    await signUp(request, 'fps@example.com')
-    let upload = await request(
-      '/upload',
-      form({ photo: await animatedGif(640, 360, 20, 33), title: 'Booth', location: 'Lyon' }),
-    )
-    assert.equal(upload.status, 303)
-    let id = upload.headers.get('Location')!.split('/').pop()!
-    let meta = await gifMeta(await request(`/images/${id}.gif`))
-    assert.equal(meta.pages, 10)
-    let length = (meta.delay ?? []).reduce((sum, ms) => sum + ms, 0)
-    assert.equal(length, 600) // 20 frames × 30 ms (GIF stores hundredths of a second)
-    assert.equal((await gifMeta(await request(`/images/${id}.webp`))).pages, 10)
-  })
-
-  it('adds the frames in reverse for a seamless loop', async () => {
-    let request = browser()
-    await signUp(request, 'loop@example.com')
-    let upload = await request(
-      '/upload',
-      form({
-        photo: await animatedGif(640, 360, 4),
-        title: 'Loop',
-        location: 'Lyon',
-        boomerang: 'on',
-      }),
-    )
-    assert.equal(upload.status, 303)
-    let id = upload.headers.get('Location')!.split('/').pop()!
-    let meta = await gifMeta(await request(`/images/${id}.gif`))
-    assert.equal(meta.pages, 6) // 1 2 3 4 3 2, then it repeats
-    assert.equal((await gifMeta(await request(`/images/${id}.webp`))).pages, 6)
-  })
-
-  it('rejects clips that are too long, saying why', async () => {
-    let request = browser()
-    await signUp(request, 'long@example.com')
+    await signUp(request, 'tiny@example.com')
     let response = await request(
       '/upload',
-      form({ photo: await animatedGif(640, 360, 200, 100), title: 'Long', location: 'Lyon' }),
+      form({ photo: await animatedGif(320, 240, 3), title: 'Tiny', location: 'Lyon' }),
     )
     assert.equal(response.status, 400)
-    assert.match(await response.text(), /20 seconds long\. Keep it to about 10 seconds/)
-  })
-
-  it('allows half as long a clip with a seamless loop', async () => {
-    let request = browser()
-    await signUp(request, 'longloop@example.com')
-    let response = await request(
-      '/upload',
-      form({
-        photo: await animatedGif(640, 360, 80, 70),
-        title: 'Long loop',
-        location: 'Lyon',
-        boomerang: 'on',
-      }),
-    )
-    assert.equal(response.status, 400)
-    assert.match(await response.text(), /keep it to about 5 seconds/)
+    assert.match(await response.text(), /need at least 640×360/)
   })
 
   it('treats a single-frame GIF as a photo', async () => {

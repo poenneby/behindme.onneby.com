@@ -5,6 +5,7 @@ export const routes = route({
   health: get('/healthz'),
   home: get('/'),
   teamsHelp: get('/teams'),
+  animatedHelp: get('/animated'),
   image: get('/images/*file'),
   auth: {
     signupForm: get('/signup'),

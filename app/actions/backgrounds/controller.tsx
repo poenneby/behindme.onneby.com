@@ -88,7 +88,6 @@ export default createController(routes.backgrounds, {
           title: String(context.formData.get('title') ?? ''),
           location: String(context.formData.get('location') ?? ''),
           description: String(context.formData.get('description') ?? ''),
-          boomerang: context.formData.get('boomerang') === 'on',
         }
         let errors: FieldErrors = {}
         let result = s.parseSafe(uploadForm, context.formData)
@@ -107,7 +106,7 @@ export default createController(routes.backgrounds, {
         let animated = false
         if (result.success && photo instanceof File && photo.size > 0) {
           try {
-            ;({ animated } = await processUpload(id, photo, { boomerang: values.boomerang }))
+            ;({ animated } = await processUpload(id, photo))
           } catch (error) {
             if (!(error instanceof ImageRejectedError)) throw error
             errors.photo = error.message

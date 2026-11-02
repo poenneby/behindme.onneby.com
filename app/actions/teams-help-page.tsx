@@ -40,17 +40,18 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
         </p>
         <p>
           Animated backgrounds are GIFs. The command installs them with a <code>.png</code>{' '}
-          extension, which is how Teams plays an animated background. Works with the new Teams app
-          (2023 onwards) and with classic Teams. If the background doesn’t show up straight away,
-          quit and reopen Teams. On a Mac, macOS may ask whether Terminal can access data from other
-          apps. Allow it, because the folder belongs to Teams.
+          extension, which is how Teams plays an animated background. To make your own, see{' '}
+          <a href={routes.animatedHelp.href()}>making an animated background</a>. Works with the new
+          Teams app (2023 onwards) and with classic Teams. If the background doesn’t show up
+          straight away, quit and reopen Teams. On a Mac, macOS may ask whether Terminal can access
+          data from other apps. Allow it, because the folder belongs to Teams.
         </p>
 
         <h2>2. Download and add it yourself</h2>
         <ol>
           <li>
-            Click <strong>Download</strong> on a background. You get a 1920×1080 JPEG, or a 1280×720
-            GIF for an animated one. Rename a GIF so it ends in <code>.png</code>, or Teams won’t
+            Click <strong>Download</strong> on a background. You get a 1920×1080 JPEG, or the GIF
+            itself for an animated one. Rename a GIF so it ends in <code>.png</code>, or Teams won’t
             accept it.
           </li>
           <li>

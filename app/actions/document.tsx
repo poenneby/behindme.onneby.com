@@ -16,7 +16,8 @@ export interface ShareInfo {
   /** Path of the page, made absolute with PUBLIC_ORIGIN. */
   path: string
   description?: string
-  image?: { path: string; width: number; height: number; alt: string }
+  /** Width and height are optional: uploaded GIFs can be any size. */
+  image?: { path: string; width?: number; height?: number; alt: string }
 }
 
 const DEFAULT_IMAGE = {
@@ -111,8 +112,8 @@ export function Document(handle: Handle<DocumentProps>) {
           </main>
           <footer class="site-footer">
             <div class="wrap">
-              Photos are shared by colleagues. Images are resized to 1920×1080 and stripped of
-              location data on upload. Built with{' '}
+              Shared by colleagues. Photos are resized to 1920×1080 and stripped of location data;
+              GIFs are kept as uploaded. Built with{' '}
               <a href="https://remix.run" rel="noopener">
                 Remix 3
               </a>{' '}
@@ -143,8 +144,12 @@ function ShareMeta(handle: Handle<{ title?: string; share?: ShareInfo }>) {
         <meta property="og:description" content={description} />
         {share ? <meta property="og:url" content={absolute(share.path)} /> : null}
         <meta property="og:image" content={absolute(image.path)} />
-        <meta property="og:image:width" content={String(image.width)} />
-        <meta property="og:image:height" content={String(image.height)} />
+        {image.width && image.height ? (
+          <>
+            <meta property="og:image:width" content={String(image.width)} />
+            <meta property="og:image:height" content={String(image.height)} />
+          </>
+        ) : null}
         <meta property="og:image:alt" content={image.alt} />
         <meta name="twitter:card" content="summary_large_image" />
       </>

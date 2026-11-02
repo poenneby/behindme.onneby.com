@@ -8,6 +8,7 @@ import { resolveImagePath } from '../images.ts'
 import { routes } from '../routes.ts'
 import { currentUser } from '../ui/current-user.ts'
 import { HomePage } from './home-page.tsx'
+import { AnimatedHelpPage } from './animated-help-page.tsx'
 import { TeamsHelpPage } from './teams-help-page.tsx'
 
 const SORTS: Sort[] = ['top', 'new', 'popular']
@@ -32,6 +33,10 @@ export default createController(routes, {
       return context.render(
         <HomePage user={currentUser(context)} items={items} locations={locations} sort={sort} />,
       )
+    },
+
+    animatedHelp(context) {
+      return context.render(<AnimatedHelpPage user={currentUser(context)} />)
     },
 
     teamsHelp(context) {
