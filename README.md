@@ -47,6 +47,10 @@ People pipe these straight into a shell, so the scripts contain only
 server-generated values: GUIDs, ids, and `PUBLIC_ORIGIN`. They never contain
 user text or the request's `Host` header, and a test checks this. Each
 background has a fixed GUID, so running a script twice overwrites the files.
+
+Animated backgrounds are GIFs, kept at 1280×720. Teams plays a GIF renamed to
+`.png`, so the scripts install them as `<guid>.png` with a still
+`<guid>_thumb.png`.
 The folder paths are undocumented by Microsoft and could move in a Teams
 update. `/teams` in the app explains the alternatives to users.
 

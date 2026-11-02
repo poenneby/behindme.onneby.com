@@ -2,7 +2,14 @@ import type { Handle } from 'remix/component'
 
 import type { BackgroundSummary, LocationSummary } from '../../data/catalog.ts'
 import type { Identity } from '../../data/users.ts'
-import { imageHref, MIN_HEIGHT, MIN_WIDTH } from '../../images.ts'
+import {
+  ANIMATED_MIN_HEIGHT,
+  ANIMATED_MIN_WIDTH,
+  fullSize,
+  imageHref,
+  MIN_HEIGHT,
+  MIN_WIDTH,
+} from '../../images.ts'
 import { routes } from '../../routes.ts'
 import { BackgroundGrid } from '../../ui/background-card.tsx'
 import { Field, type FieldErrors } from '../../ui/field.tsx'
@@ -37,13 +44,22 @@ export function ShowPage(
         share={{
           path: routes.backgrounds.show.href({ id: bg.id }),
           description: `${bg.locationName}, shared by ${bg.authorName}. Add it to Microsoft Teams with one command.`,
-          image: { path: imageHref(bg.id, 'full'), width: 1920, height: 1080, alt: bg.title },
+          image: {
+            path: imageHref(bg.id, 'full', bg.animated),
+            ...fullSize(bg.animated),
+            alt: bg.title,
+          },
         }}
       >
         <div class="detail">
           <div class="stack">
             <div class="detail-image">
-              <img src={imageHref(bg.id, 'full')} alt={bg.title} width="1920" height="1080" />
+              <img
+                src={imageHref(bg.id, 'full', bg.animated)}
+                alt={bg.title}
+                width={String(fullSize(bg.animated).width)}
+                height={String(fullSize(bg.animated).height)}
+              />
             </div>
             {bg.description ? <p style={{ margin: 0 }}>{bg.description}</p> : null}
           </div>
@@ -54,7 +70,10 @@ export function ShowPage(
                 <a class="small muted" href={routes.locations.show.href({ slug: bg.locationSlug })}>
                   {bg.locationName}
                 </a>
-                <h1>{bg.title}</h1>
+                <h1>
+                  {bg.animated ? <span class="badge">Animated</span> : null}
+                  {bg.title}
+                </h1>
                 <span class="small muted">
                   Shared by {bg.authorName} on {shared} · added {bg.downloads}{' '}
                   {bg.downloads === 1 ? 'time' : 'times'}
@@ -63,7 +82,9 @@ export function ShowPage(
               <Stars rating={bg.rating} count={bg.ratingCount} />
               <div class="row">
                 <a class="btn btn-primary" href={routes.backgrounds.download.href({ id: bg.id })}>
-                  Download 1920×1080
+                  {bg.animated
+                    ? `Download GIF ${fullSize(true).width}×${fullSize(true).height}`
+                    : `Download ${fullSize(false).width}×${fullSize(false).height}`}
                 </a>
               </div>
             </div>
@@ -155,13 +176,13 @@ export function UploadPage(
             label="Photo"
             name="photo"
             error={errors.photo}
-            hint={`JPEG, PNG, WebP or HEIC, at least ${MIN_WIDTH}×${MIN_HEIGHT}, up to 25 MB. It’s cropped to 16:9 at 1920×1080 and location data is removed.`}
+            hint={`JPEG, PNG, WebP or HEIC at least ${MIN_WIDTH}×${MIN_HEIGHT}, or an animated GIF at least ${ANIMATED_MIN_WIDTH}×${ANIMATED_MIN_HEIGHT}. Up to 25 MB. Photos are cropped to 16:9 at 1920×1080, GIFs at 1280×720, and location data is removed.`}
           >
             <input
               id="photo"
               name="photo"
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif"
               required
             />
           </Field>

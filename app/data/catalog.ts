@@ -11,6 +11,7 @@ export interface BackgroundSummary {
   title: string
   description: string
   teamsGuid: string
+  animated: boolean
   downloads: number
   createdAt: number
   userId: string
@@ -36,7 +37,7 @@ const ORDER_BY: Record<Sort, string> = {
 
 const SELECT = `
   select
-    b.id, b.title, b.description, b.teams_guid, b.downloads, b.created_at, b.user_id,
+    b.id, b.title, b.description, b.teams_guid, b.animated, b.downloads, b.created_at, b.user_id,
     u.name as author_name, l.name as location_name, l.slug as location_slug,
     coalesce(avg(r.stars), 0) as rating, count(r.stars) as rating_count
   from backgrounds b
@@ -51,6 +52,7 @@ function toSummary(row: Record<string, unknown>): BackgroundSummary {
     title: String(row.title),
     description: String(row.description ?? ''),
     teamsGuid: String(row.teams_guid),
+    animated: Number(row.animated) === 1,
     downloads: Number(row.downloads),
     createdAt: Number(row.created_at),
     userId: String(row.user_id),
@@ -131,6 +133,7 @@ export async function createBackground(
     locationId: string
     title: string
     description: string
+    animated: boolean
   },
 ) {
   await db.create(backgrounds, {
@@ -140,6 +143,7 @@ export async function createBackground(
     title: input.title,
     description: input.description,
     teams_guid: input.teamsGuid,
+    animated: input.animated ? 1 : 0,
     downloads: 0,
     created_at: Date.now(),
   })

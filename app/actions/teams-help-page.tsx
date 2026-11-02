@@ -12,7 +12,8 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
       section="teams"
       share={{
         path: routes.teamsHelp.href(),
-        description: 'Three ways to add an office background to Microsoft Teams, from one command to org-wide.',
+        description:
+          'Three ways to add an office background to Microsoft Teams, from one command to org-wide.',
       }}
     >
       <article class="prose">
@@ -38,15 +39,19 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
           image ids. Running it again replaces the files rather than adding duplicates.
         </p>
         <p>
-          Works with the new Teams app (2023 onwards) and with classic Teams. If the background
-          doesn’t show up straight away, quit and reopen Teams. On a Mac, macOS may ask whether
-          Terminal can access data from other apps. Allow it, because the folder belongs to Teams.
+          Animated backgrounds are GIFs. The command installs them with a <code>.png</code>{' '}
+          extension, which is how Teams plays an animated background. Works with the new Teams app
+          (2023 onwards) and with classic Teams. If the background doesn’t show up straight away,
+          quit and reopen Teams. On a Mac, macOS may ask whether Terminal can access data from other
+          apps. Allow it, because the folder belongs to Teams.
         </p>
 
         <h2>2. Download and add it yourself</h2>
         <ol>
           <li>
-            Click <strong>Download</strong> on a background. You get a 1920×1080 JPEG.
+            Click <strong>Download</strong> on a background. You get a 1920×1080 JPEG, or a 1280×720
+            GIF for an animated one. Rename a GIF so it ends in <code>.png</code>, or Teams won’t
+            accept it.
           </li>
           <li>
             In Teams, open <strong>Settings → Devices → Video effects</strong> (or{' '}

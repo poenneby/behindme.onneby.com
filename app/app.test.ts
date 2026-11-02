@@ -36,6 +36,26 @@ async function photo(width: number, height: number) {
   return new File([new Uint8Array(bytes)], 'office.jpg', { type: 'image/jpeg' })
 }
 
+async function animatedGif(width: number, height: number, frames: number) {
+  let pages = []
+  for (let i = 0; i < frames; i++) {
+    pages.push(
+      await sharp({
+        create: { width, height, channels: 3, background: { r: 30 * i, g: 90, b: 200 } },
+      })
+        .png()
+        .toBuffer(),
+    )
+  }
+  let bytes =
+    frames === 1
+      ? await sharp(pages[0]).gif().toBuffer()
+      : await sharp(pages, { join: { animated: true } })
+          .gif({ delay: 100, loop: 0 })
+          .toBuffer()
+  return new File([new Uint8Array(bytes)], 'loop.gif', { type: 'image/gif' })
+}
+
 async function signUp(request: ReturnType<typeof browser>, email: string) {
   let response = await request(
     '/signup',
@@ -89,7 +109,10 @@ describe('office backdrops', () => {
 
     // Shared links unfurl with the photo itself, as an absolute URL.
     let page = await (await owner(showPath)).text()
-    assert.match(page, new RegExp(`<meta property="og:image" content="http://localhost:44100/images/${id}\\.jpg"`))
+    assert.match(
+      page,
+      new RegExp(`<meta property="og:image" content="http://localhost:44100/images/${id}\\.jpg"`),
+    )
     assert.match(page, /<meta property="og:title" content="Rooftop/)
     assert.match(page, /<meta name="twitter:card" content="summary_large_image"/)
 
@@ -127,6 +150,62 @@ describe('office backdrops', () => {
     assert.equal((await owner(`/images/${id}.jpg`)).status, 404)
   })
 
+  it('keeps animated GIFs animated and installs them as .png', async () => {
+    let request = browser()
+    await signUp(request, 'gif@example.com')
+    let upload = await request(
+      '/upload',
+      form({ photo: await animatedGif(800, 600, 4), title: 'Lift doors', location: 'Lyon' }),
+    )
+    assert.equal(upload.status, 303)
+    let showPath = upload.headers.get('Location')!
+    let id = showPath.split('/').pop()!
+
+    let gif = await request(`/images/${id}.gif`)
+    assert.equal(gif.status, 200)
+    let meta = await sharp(new Uint8Array(await gif.arrayBuffer()), { animated: true }).metadata()
+    assert.equal(meta.format, 'gif')
+    assert.equal(meta.pages, 4)
+    assert.equal(meta.width, 1280)
+    assert.equal(meta.pageHeight, 720)
+
+    let thumb = await sharp(
+      new Uint8Array(await (await request(`/images/${id}_thumb.png`)).arrayBuffer()),
+    ).metadata()
+    assert.equal(thumb.format, 'png')
+    assert.equal(thumb.width, 280)
+
+    let preview = await sharp(
+      new Uint8Array(await (await request(`/images/${id}.webp`)).arrayBuffer()),
+      { animated: true },
+    ).metadata()
+    assert.equal(preview.pages, 4)
+
+    assert.match(await (await request(showPath)).text(), /Animated/)
+
+    let ps1 = await (await request(`${showPath}/teams.ps1`)).text()
+    assert.match(ps1, new RegExp(`Ext = 'png'; Image = '[^']*/images/${id}\\.gif'`))
+    let sh = await (await request(`${showPath}/teams.sh`)).text()
+    assert.match(sh, new RegExp(`/images/${id}\\.gif' -o "\\$dir/[0-9a-f-]{36}\\.png"`))
+    assert.match(sh, /_thumb\.png"/)
+
+    let download = await request(`${showPath}/download`)
+    assert.match(download.headers.get('Content-Disposition') ?? '', /lyon-lift-doors\.gif/)
+  })
+
+  it('treats a single-frame GIF as a photo', async () => {
+    let request = browser()
+    await signUp(request, 'still@example.com')
+    let upload = await request(
+      '/upload',
+      form({ photo: await animatedGif(1600, 900, 1), title: 'Still', location: 'Lyon' }),
+    )
+    assert.equal(upload.status, 303)
+    let id = upload.headers.get('Location')!.split('/').pop()!
+    assert.equal((await request(`/images/${id}.jpg`)).status, 200)
+    assert.equal((await request(`/images/${id}.gif`)).status, 404)
+  })
+
   it('does not serve files outside the image folder', async () => {
     let request = browser()
     for (let path of [
@@ -146,7 +225,10 @@ describe('office backdrops', () => {
     }
     let html = await (await request('/')).text()
     assert.match(html, /<meta name="robots" content="noindex, nofollow/)
-    assert.match(html, /<meta property="og:image" content="http:\/\/localhost:44100\/og-default\.jpg"/)
+    assert.match(
+      html,
+      /<meta property="og:image" content="http:\/\/localhost:44100\/og-default\.jpg"/,
+    )
     // Crawlers must be allowed to fetch pages, or they'd never see the noindex.
     assert.match(await (await request('/robots.txt')).text(), /Allow: \//)
   })

@@ -28,7 +28,10 @@ export function BackgroundCard(handle: Handle<{ item: BackgroundSummary }>) {
       <a class="card" href={routes.backgrounds.show.href({ id: item.id })}>
         <img src={imageHref(item.id, 'preview')} alt="" loading="lazy" width="960" height="540" />
         <div class="card-body">
-          <span class="card-title">{item.title}</span>
+          <span class="card-title">
+            {item.animated ? <span class="badge">Animated</span> : null}
+            {item.title}
+          </span>
           <span class="card-meta">
             <span>{item.locationName}</span>
             <Stars rating={item.rating} count={item.ratingCount} />

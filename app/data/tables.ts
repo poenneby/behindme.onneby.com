@@ -33,6 +33,8 @@ export const backgrounds = table({
     teams_guid: c.text(),
     downloads: c.integer(),
     created_at: c.integer(),
+    /** 1 for an animated GIF, 0 for a still photo. */
+    animated: c.integer(),
   },
 })
 

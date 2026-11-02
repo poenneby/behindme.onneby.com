@@ -103,9 +103,10 @@ export default createController(routes.backgrounds, {
         }
 
         let id = newId()
+        let animated = false
         if (result.success && photo instanceof File && photo.size > 0) {
           try {
-            await processUpload(id, photo)
+            ;({ animated } = await processUpload(id, photo))
           } catch (error) {
             if (!(error instanceof ImageRejectedError)) throw error
             errors.photo = error.message
@@ -130,6 +131,7 @@ export default createController(routes.backgrounds, {
             locationId: location.id,
             title: result.value.title,
             description: result.value.description,
+            animated,
           })
         } catch (error) {
           await deleteImages(id)
@@ -170,11 +172,13 @@ export default createController(routes.backgrounds, {
 
     async download(context) {
       let background = await getBackground(context.db, context.params.id)
-      let filePath = background && resolveImagePath(imageFileName(background.id, 'full'))
+      let filePath =
+        background && resolveImagePath(imageFileName(background.id, 'full', background.animated))
       if (!background || !filePath) return new Response('Not Found', { status: 404 })
       await countDownload(context.db, [background.id])
       let response = await createFileResponse(openLazyFile(filePath), context.request)
-      let name = `${slugify(background.locationName)}-${slugify(background.title)}.jpg`
+      let ext = background.animated ? 'gif' : 'jpg'
+      let name = `${slugify(background.locationName)}-${slugify(background.title)}.${ext}`
       response.headers.set('Content-Disposition', `attachment; filename="${name}"`)
       return response
     },
