@@ -160,3 +160,8 @@ main { padding: 32px 0 64px; }
 .prose pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
 .prose h3 { margin: 20px 0 4px; font-size: 17px; }
 .field .hint a { color: inherit; }
+
+.tips { font-size: 14px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.tips summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.tips p { margin: 8px 0; }
+.tips ul { margin: 8px 0; padding-left: 20px; display: grid; gap: 6px; }

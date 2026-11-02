@@ -39,6 +39,12 @@ export function AnimatedHelpPage(handle: Handle<{ user: Identity | null }>) {
         <h2>1. Film it</h2>
         <ul>
           <li>
+            Film from where you sit, with your own camera, so it lines up with the room around you.
+            On a Mac, Photo Booth records movie clips (choose the movie button at the bottom left).
+            On Windows, use the Camera app’s video mode. Start recording, step out of view, and come
+            back when you have enough.
+          </li>
+          <li>
             <strong>Put the camera down on something steady.</strong> If it shakes, every pixel
             changes in every frame and the GIF gets enormous.
           </li>

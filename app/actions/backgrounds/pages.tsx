@@ -167,6 +167,29 @@ export function UploadPage(
               whiteboards and screens with anything confidential on them.
             </p>
           </div>
+          <details class="tips">
+            <summary>Tip: photograph the view behind you, from your own camera</summary>
+            <p>
+              Taken from where you sit, with your own camera, the background lines up with the room
+              around you and looks real. Sit where you normally do, then take the photo with
+              yourself out of view:
+            </p>
+            <ul>
+              <li>
+                <strong>Mac, with Photo Booth.</strong> Make the window large first, because a small
+                window saves a smaller photo. Tick <em>Edit → Auto Flip New Items</em> so the photo
+                isn’t mirrored. Click the red camera button and duck out of view during the 3-second
+                countdown. Drag the photo out of Photo Booth onto your desktop, or use{' '}
+                <em>File → Export</em>.
+              </li>
+              <li>
+                <strong>Windows, with the Camera app.</strong> Click the stopwatch to set a 5- or
+                10-second timer, and pick the highest 16:9 photo resolution in its settings. Take
+                the photo and step out of view. It’s saved in <em>Pictures → Camera Roll</em>.
+              </li>
+            </ul>
+            <p>We crop it to 16:9 when you upload it.</p>
+          </details>
           <Field
             label="Photo"
             name="photo"
