@@ -55,8 +55,11 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
             accept it.
           </li>
           <li>
-            In Teams, open <strong>Settings → Devices → Video effects</strong> (or{' '}
-            <strong>More → Video effects</strong> in a meeting).
+            Backgrounds aren’t in Teams’ settings. Open the screen you see before joining a meeting
+            (<strong>Calendar → Meet now</strong> works for trying one out), turn your camera on,
+            and open the background effects next to the camera and mic switches. In a meeting that’s
+            already started, they’re under <strong>More (⋯)</strong>, or the arrow next to the
+            camera button.
           </li>
           <li>
             Choose <strong>Add new</strong> and pick the file you downloaded.

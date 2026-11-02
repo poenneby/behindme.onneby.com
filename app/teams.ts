@@ -80,7 +80,7 @@ foreach ($target in $targets) {
 if ($installed -eq 0) {
   Write-Warning "Couldn't find Microsoft Teams for this user. Download the image instead and use 'Add new' under Backgrounds in a meeting."
 } else {
-  Write-Host "Done. Open Teams > Settings > Devices > Video effects, or Backgrounds in a meeting. Restart Teams if they don't show up yet."
+  Write-Host "Done. In Teams, start or join a meeting (Calendar > Meet now works) and open the background effects next to the camera switch. Quit and reopen Teams if they don't show up yet."
 }
 `
 }
@@ -124,7 +124,7 @@ if [ "$installed" -eq 0 ]; then
   echo "Couldn't find Microsoft Teams for this user. Download the image instead and use 'Add new' under Backgrounds in a meeting." >&2
   exit 1
 fi
-echo "Done. Open Teams > Settings > Devices > Video effects, or Backgrounds in a meeting. Restart Teams if they don't show up yet."
+echo "Done. In Teams, start or join a meeting (Calendar > Meet now works) and open the background effects next to the camera switch. Quit and reopen Teams if they don't show up yet."
 `
 }
 
