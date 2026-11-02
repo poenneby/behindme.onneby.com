@@ -78,7 +78,13 @@ export function ShowPage(
               </div>
               <Stars rating={bg.rating} count={bg.ratingCount} />
               <div class="row">
-                <a class="btn btn-primary" href={routes.backgrounds.download.href({ id: bg.id })}>
+                {/* `download` makes the browser save the file. Without it, Remix's
+                    client-side navigation fetches the image and renders it as a page. */}
+                <a
+                  class="btn btn-primary"
+                  href={routes.backgrounds.download.href({ id: bg.id })}
+                  download
+                >
                   {bg.animated ? 'Download GIF' : 'Download 1920×1080'}
                 </a>
               </div>

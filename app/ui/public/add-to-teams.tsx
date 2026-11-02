@@ -86,7 +86,8 @@ export const AddToTeams = clientEntry(
             ) : null}
           </div>
           <p class="small muted" style={{ margin: 0 }}>
-            <a href={scriptHref} target="_blank" rel="noopener">
+            {/* A plain-text script, not a page: load it as a normal document. */}
+            <a href={scriptHref} target="_blank" rel="noopener" data-rmx-document>
               Read the script first
             </a>{' '}
             · <a href="/teams">Other ways to add it</a>

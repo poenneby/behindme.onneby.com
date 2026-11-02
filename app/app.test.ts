@@ -120,6 +120,10 @@ describe('office backdrops', () => {
 
     // Shared links unfurl with the photo itself, as an absolute URL.
     let page = await (await owner(showPath)).text()
+    // The download link must bypass client-side navigation, or the browser
+    // renders the JPEG's bytes as a page instead of saving it.
+    assert.match(page, new RegExp(`<a [^>]*href="${showPath}/download"[^>]*\\bdownload\\b`))
+    assert.match(page, /href="[^"]*teams\.ps1"[^>]*data-rmx-document/)
     assert.match(
       page,
       new RegExp(`<meta property="og:image" content="http://localhost:44100/images/${id}\\.jpg"`),
