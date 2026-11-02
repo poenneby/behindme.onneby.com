@@ -23,7 +23,7 @@ export function HomePage(
   return () => {
     let { user, items, locations, sort } = handle.props
     return (
-      <Document user={user} section="browse">
+      <Document user={user} section="browse" share={{ path: routes.home.href() }}>
         <div class="hero">
           <h1>Teams backgrounds from our offices</h1>
           <p>

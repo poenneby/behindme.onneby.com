@@ -31,7 +31,15 @@ export function ShowPage(
     })
 
     return (
-      <Document user={user} title={bg.title}>
+      <Document
+        user={user}
+        title={bg.title}
+        share={{
+          path: routes.backgrounds.show.href({ id: bg.id }),
+          description: `${bg.locationName}, shared by ${bg.authorName}. Add it to Microsoft Teams with one command.`,
+          image: { path: imageHref(bg.id, 'full'), width: 1920, height: 1080, alt: bg.title },
+        }}
+      >
         <div class="detail">
           <div class="stack">
             <div class="detail-image">

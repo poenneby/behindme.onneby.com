@@ -19,6 +19,7 @@ import { config } from './config.ts'
 import { MAX_UPLOAD_BYTES } from './images.ts'
 import { loadAuth } from './middleware/auth.ts'
 import { loadDatabase } from './middleware/database.ts'
+import { noIndex } from './middleware/no-index.ts'
 import { routes } from './routes.ts'
 
 const sessionCookie = createCookie('__session', {
@@ -33,6 +34,7 @@ const sessionCookie = createCookie('__session', {
 
 export const router = createRouter({
   middleware: [
+    noIndex(),
     logger(),
     compression(),
     staticFiles('./public', { index: false }),

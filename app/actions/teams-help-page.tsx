@@ -1,11 +1,20 @@
 import type { Handle } from 'remix/component'
 
 import type { Identity } from '../data/users.ts'
+import { routes } from '../routes.ts'
 import { Document } from './document.tsx'
 
 export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
   return () => (
-    <Document user={handle.props.user} title="Adding backgrounds to Teams" section="teams">
+    <Document
+      user={handle.props.user}
+      title="Adding backgrounds to Teams"
+      section="teams"
+      share={{
+        path: routes.teamsHelp.href(),
+        description: 'Three ways to add an office background to Microsoft Teams, from one command to org-wide.',
+      }}
+    >
       <article class="prose">
         <div class="hero">
           <h1>Adding a background to Teams</h1>

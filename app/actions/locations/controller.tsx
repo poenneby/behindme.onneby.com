@@ -34,6 +34,7 @@ export default createController(routes.locations, {
         <LocationPage
           user={currentUser(context)}
           name={location.name}
+          slug={location.slug}
           items={items}
           windowsCommand={windowsCommand(absolute(windowsHref))}
           macCommand={macCommand(absolute(macHref))}

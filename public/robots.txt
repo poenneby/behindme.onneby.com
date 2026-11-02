@@ -1,0 +1,5 @@
+# Crawling is allowed on purpose: every response carries
+# `X-Robots-Tag: noindex`, which crawlers can only see if they may fetch it.
+# Blocking here would let search engines list URLs they find linked elsewhere.
+User-agent: *
+Allow: /

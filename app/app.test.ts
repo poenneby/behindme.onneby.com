@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 import { beforeAll, describe, it } from 'remix/test'
 
 import { migrateDatabase } from './db.ts'
+import { ROBOTS } from './middleware/no-index.ts'
 import { router } from './router.ts'
 
 const ORIGIN = 'http://localhost'
@@ -86,7 +87,14 @@ describe('office backdrops', () => {
     let showPath = upload.headers.get('Location')!
     let id = showPath.split('/').pop()!
 
+    // Shared links unfurl with the photo itself, as an absolute URL.
+    let page = await (await owner(showPath)).text()
+    assert.match(page, new RegExp(`<meta property="og:image" content="http://localhost:44100/images/${id}\\.jpg"`))
+    assert.match(page, /<meta property="og:title" content="Rooftop/)
+    assert.match(page, /<meta name="twitter:card" content="summary_large_image"/)
+
     let image = await owner(`/images/${id}.jpg`)
+    assert.equal(image.headers.get('X-Robots-Tag'), ROBOTS)
     assert.equal(image.status, 200)
     let meta = await sharp(new Uint8Array(await image.arrayBuffer())).metadata()
     assert.equal(meta.width, 1920)
@@ -128,6 +136,19 @@ describe('office backdrops', () => {
     ]) {
       assert.equal((await request(path)).status, 404, path)
     }
+  })
+
+  it('asks search engines not to index anything', async () => {
+    let request = browser()
+    for (let path of ['/', '/styles.css', '/upload', '/no-such-page']) {
+      let response = await request(path)
+      assert.equal(response.headers.get('X-Robots-Tag'), ROBOTS, path)
+    }
+    let html = await (await request('/')).text()
+    assert.match(html, /<meta name="robots" content="noindex, nofollow/)
+    assert.match(html, /<meta property="og:image" content="http:\/\/localhost:44100\/og-default\.jpg"/)
+    // Crawlers must be allowed to fetch pages, or they'd never see the noindex.
+    assert.match(await (await request('/robots.txt')).text(), /Allow: \//)
   })
 
   it('blocks cross-site form posts', async () => {

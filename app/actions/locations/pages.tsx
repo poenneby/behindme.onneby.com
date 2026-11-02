@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 
 import type { BackgroundSummary, LocationSummary } from '../../data/catalog.ts'
 import type { Identity } from '../../data/users.ts'
+import { imageHref } from '../../images.ts'
 import { routes } from '../../routes.ts'
 import { BackgroundGrid } from '../../ui/background-card.tsx'
 import { AddToTeams } from '../../ui/public/add-to-teams.tsx'
@@ -13,7 +14,15 @@ export function LocationsPage(
   return () => {
     let { user, locations } = handle.props
     return (
-      <Document user={user} title="Offices" section="locations">
+      <Document
+        user={user}
+        title="Offices"
+        section="locations"
+        share={{
+          path: routes.locations.index.href(),
+          description: 'Every office colleagues have shared Teams backgrounds from.',
+        }}
+      >
         <div class="hero">
           <h1>Offices</h1>
           <p>Every office someone has shared a photo from.</p>
@@ -43,6 +52,7 @@ export function LocationPage(
   handle: Handle<{
     user: Identity | null
     name: string
+    slug: string
     items: BackgroundSummary[]
     windowsCommand: string
     macCommand: string
@@ -51,9 +61,21 @@ export function LocationPage(
   }>,
 ) {
   return () => {
-    let { user, name, items } = handle.props
+    let { user, name, slug, items } = handle.props
+    let top = items[0]
     return (
-      <Document user={user} title={name} section="locations">
+      <Document
+        user={user}
+        title={name}
+        section="locations"
+        share={{
+          path: routes.locations.show.href({ slug }),
+          description: `${items.length} Teams ${items.length === 1 ? 'background' : 'backgrounds'} from ${name}. Add them all with one command.`,
+          image: top
+            ? { path: imageHref(top.id, 'full'), width: 1920, height: 1080, alt: top.title }
+            : undefined,
+        }}
+      >
         <div class="detail" style={{ marginBottom: '28px', alignItems: 'end' }}>
           <div class="hero" style={{ margin: 0 }}>
             <a class="small muted" href={routes.locations.index.href()}>

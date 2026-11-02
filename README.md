@@ -54,6 +54,8 @@ update. `/teams` in the app explains the alternatives to users.
 
 - `app/routes.ts`: every URL the app serves
 - `app/router.ts`: middleware (logging, cross-origin protection, sessions, auth, uploads, rendering)
+- `app/middleware/no-index.ts`: keeps the site out of search engines (`X-Robots-Tag` on every response). `robots.txt` allows crawling on purpose, so crawlers can see it
+- `app/actions/document.tsx`: the page shell, including Open Graph tags so shared links unfurl with the photo
 - `app/actions/`: controllers and pages, one folder per route group (`auth`, `backgrounds`, `locations`)
 - `app/data/`: tables, queries, password hashing
 - `app/images.ts`: upload processing with sharp (1920×1080 JPEG, Teams thumbnail, WebP preview, metadata stripped)

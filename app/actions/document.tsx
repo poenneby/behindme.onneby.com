@@ -2,10 +2,29 @@ import type { Handle, RemixNode } from 'remix/component'
 import { ImportMap } from 'remix/component/server'
 
 import { scriptEntry } from '../assets.ts'
+import { config } from '../config.ts'
 import type { Identity } from '../data/users.ts'
+import { ROBOTS } from '../middleware/no-index.ts'
 import { routes } from '../routes.ts'
 
 export const APP_NAME = 'Behind Me'
+const DEFAULT_DESCRIPTION =
+  'Microsoft Teams backgrounds photographed in our offices. Pick one and add it to Teams with one command.'
+
+/** What a shared link unfurls to in Teams, Slack, LinkedIn and friends. */
+export interface ShareInfo {
+  /** Path of the page, made absolute with PUBLIC_ORIGIN. */
+  path: string
+  description?: string
+  image?: { path: string; width: number; height: number; alt: string }
+}
+
+const DEFAULT_IMAGE = {
+  path: '/og-default.jpg',
+  width: 1200,
+  height: 630,
+  alt: 'Behind Me: Teams backgrounds from our offices',
+}
 
 export interface DocumentProps {
   children?: RemixNode
@@ -13,12 +32,13 @@ export interface DocumentProps {
   user?: Identity | null
   /** Highlights the matching nav item. */
   section?: 'browse' | 'locations' | 'teams' | 'upload' | 'mine'
+  share?: ShareInfo
   head?: RemixNode
 }
 
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
-    let { children, head, title, user, section } = handle.props
+    let { children, head, title, user, section, share } = handle.props
     let { href, importMap, preloads } = scriptEntry
     let current = (name: DocumentProps['section']) => (section === name ? 'page' : undefined)
 
@@ -31,6 +51,9 @@ export function Document(handle: Handle<DocumentProps>) {
           <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <link rel="stylesheet" href="/styles.css" />
           <title>{title ? `${title} · ${APP_NAME}` : APP_NAME}</title>
+          <meta name="robots" content={ROBOTS} />
+          <ShareMeta title={title} share={share} />
+          <meta name="theme-color" content="#c8102e" />
           {head}
           <ImportMap value={importMap} />
           {preloads.map((preloadHref) => (
@@ -101,6 +124,30 @@ export function Document(handle: Handle<DocumentProps>) {
           </footer>
         </body>
       </html>
+    )
+  }
+}
+
+function ShareMeta(handle: Handle<{ title?: string; share?: ShareInfo }>) {
+  return () => {
+    let { title, share } = handle.props
+    let absolute = (path: string) => new URL(path, config.publicOrigin).href
+    let description = share?.description ?? DEFAULT_DESCRIPTION
+    let image = share?.image ?? DEFAULT_IMAGE
+    return (
+      <>
+        <meta name="description" content={description} />
+        <meta property="og:site_name" content={APP_NAME} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={title ?? APP_NAME} />
+        <meta property="og:description" content={description} />
+        {share ? <meta property="og:url" content={absolute(share.path)} /> : null}
+        <meta property="og:image" content={absolute(image.path)} />
+        <meta property="og:image:width" content={String(image.width)} />
+        <meta property="og:image:height" content={String(image.height)} />
+        <meta property="og:image:alt" content={image.alt} />
+        <meta name="twitter:card" content="summary_large_image" />
+      </>
     )
   }
 }
