@@ -2,7 +2,10 @@ import sharp from 'sharp'
 import * as assert from 'remix/assert'
 import { beforeAll, describe, it } from 'remix/test'
 
-import { migrateDatabase } from './db.ts'
+import { sql } from 'remix/data-table'
+
+import { db, migrateDatabase } from './db.ts'
+import { outbox } from './mail.ts'
 import { ROBOTS } from './middleware/no-index.ts'
 import { router } from './router.ts'
 
@@ -67,12 +70,25 @@ async function gifMeta(response: Response) {
   return sharp(new Uint8Array(await response.arrayBuffer()), { animated: true }).metadata()
 }
 
+/** The path of the newest emailed link of this kind sent to `email`. */
+function emailedLink(email: string, kind: 'verify' | 'reset') {
+  let mail = outbox.findLast((m) => m.to === email)
+  assert.ok(mail, `no email sent to ${email}`)
+  let match = mail.text.match(new RegExp(`https?://[^/]+(/${kind}/[A-Za-z0-9_-]{43})`))
+  assert.ok(match, `no ${kind} link in "${mail.subject}"`)
+  return match[1]
+}
+
+/** Signs up and activates the account from the emailed link, logging in. */
 async function signUp(request: ReturnType<typeof browser>, email: string) {
   let response = await request(
     '/signup',
     form({ name: email.split('@')[0], email, password: 'a long enough password' }),
   )
   assert.equal(response.status, 303)
+  assert.equal(response.headers.get('Location'), '/check-email')
+  let activated = await request(emailedLink(email, 'verify'), { method: 'POST' })
+  assert.equal(activated.status, 303)
 }
 
 describe('office backdrops', () => {
@@ -230,6 +246,104 @@ describe('office backdrops', () => {
     let id = upload.headers.get('Location')!.split('/').pop()!
     assert.equal((await request(`/images/${id}.jpg`)).status, 200)
     assert.equal((await request(`/images/${id}.gif`)).status, 404)
+  })
+
+  it('needs the emailed link before an account can log in', async () => {
+    let request = browser()
+    let email = 'new@example.com'
+    let signup = await request(
+      '/signup',
+      form({ name: 'New', email, password: 'a long enough password' }),
+    )
+    assert.equal(signup.headers.get('Location'), '/check-email')
+    assert.match(await (await request('/check-email')).text(), /new@example\.com/)
+    assert.equal(outbox.findLast((m) => m.to === email)?.subject, 'Activate your Behind Me account')
+
+    // Not activated yet: logging in is refused, and signing up didn't log in.
+    assert.equal((await request('/upload')).status, 302)
+    let login = await request('/login', form({ email, password: 'a long enough password' }))
+    assert.equal(login.status, 403)
+    assert.match(await login.text(), /Activate your account first/)
+
+    // Opening the link (as a mail scanner would) doesn't use it up…
+    let link = emailedLink(email, 'verify')
+    for (let i = 0; i < 2; i++) {
+      let page = await browser()(link)
+      assert.equal(page.status, 200)
+      assert.equal(page.headers.get('Referrer-Policy'), 'no-referrer')
+      assert.match(await page.text(), /Activate my account/)
+    }
+    // …pressing the button does, and logs in.
+    assert.equal((await request(link, { method: 'POST' })).status, 303)
+    assert.equal((await request('/upload')).status, 200)
+    assert.equal((await browser()(link, { method: 'POST' })).status, 410)
+
+    let again = browser()
+    let relogin = await again('/login', form({ email, password: 'a long enough password' }))
+    assert.equal(relogin.status, 303)
+  })
+
+  it('rejects expired activation links', async () => {
+    let request = browser()
+    let email = 'late@example.com'
+    await request('/signup', form({ name: 'Late', email, password: 'a long enough password' }))
+    let link = emailedLink(email, 'verify')
+    await db.exec(sql`update auth_tokens set expires_at = 0`)
+    assert.equal((await request(link)).status, 410)
+    assert.equal((await request(link, { method: 'POST' })).status, 410)
+  })
+
+  it('escapes names in emails', async () => {
+    let email = 'html@example.com'
+    await browser()(
+      '/signup',
+      form({ name: '<img src=x>', email, password: 'a long enough password' }),
+    )
+    let mail = outbox.findLast((m) => m.to === email)!
+    assert.ok(!mail.html.includes('<img src=x>'))
+    assert.match(mail.html, /&lt;img src=x&gt;/)
+  })
+
+  it('resets a forgotten password and logs out other sessions', async () => {
+    let email = 'forgetful@example.com'
+    let laptop = browser()
+    await signUp(laptop, email)
+    assert.equal((await laptop('/upload')).status, 200)
+
+    // Unknown addresses get the same answer, and no email.
+    let phone = browser()
+    let sentBefore = outbox.length
+    let unknown = await phone('/forgot', form({ email: 'nobody@example.com' }))
+    assert.equal(unknown.status, 303)
+    assert.equal(outbox.length, sentBefore)
+
+    let forgot = await phone('/forgot', form({ email }))
+    assert.equal(forgot.headers.get('Location'), '/check-email')
+    let link = emailedLink(email, 'reset')
+    assert.equal(outbox.at(-1)?.subject, 'Reset your Behind Me password')
+
+    assert.equal((await phone(link)).status, 200)
+    assert.equal((await phone(link, form({ password: 'short' }))).status, 400)
+    let reset = await phone(link, form({ password: 'a brand new password' }))
+    assert.equal(reset.status, 303)
+    assert.equal((await phone('/upload')).status, 200)
+
+    // The laptop's session ended; the old password no longer works.
+    assert.equal((await laptop('/upload')).status, 302)
+    let old = await browser()('/login', form({ email, password: 'a long enough password' }))
+    assert.equal(old.status, 401)
+    let fresh = await browser()('/login', form({ email, password: 'a brand new password' }))
+    assert.equal(fresh.status, 303)
+    assert.equal((await phone(link, form({ password: 'yet another password' }))).status, 410)
+  })
+
+  it('sends at most one email of each kind a minute', async () => {
+    let email = 'impatient@example.com'
+    await signUp(browser(), email)
+    let sentBefore = outbox.length
+    await browser()('/forgot', form({ email }))
+    await browser()('/forgot', form({ email }))
+    assert.equal(outbox.length, sentBefore + 1)
   })
 
   it('does not serve files outside the image folder', async () => {

@@ -7,6 +7,8 @@ import { routes } from '../routes.ts'
 
 export interface AuthRecord {
   userId: string
+  /** The account's session_version when this session logged in. */
+  version?: number
 }
 
 /** Resolves `context.auth` from the session on every request. */
@@ -18,7 +20,7 @@ export function loadAuth() {
           return (session.get('auth') as AuthRecord | undefined) ?? null
         },
         verify(value) {
-          return getIdentity(db, value.userId)
+          return getIdentity(db, value.userId, value.version ?? 0)
         },
         invalidate(session) {
           session.unset('auth')

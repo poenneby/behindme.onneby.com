@@ -9,6 +9,23 @@ export const users = table({
     name: c.text(),
     password_hash: c.text(),
     created_at: c.integer(),
+    /** When the account was activated from the emailed link; null until then. */
+    verified_at: c.integer().nullable(),
+    /** Bumped on password reset, which logs out every other session. */
+    session_version: c.integer(),
+  },
+})
+
+export const authTokens = table({
+  name: 'auth_tokens',
+  columns: {
+    /** SHA-256 of the token in the link, hex. The token itself isn't stored. */
+    id: c.text(),
+    user_id: c.text(),
+    purpose: c.text(),
+    expires_at: c.integer(),
+    used_at: c.integer().nullable(),
+    created_at: c.integer(),
   },
 })
 

@@ -45,6 +45,9 @@ export function LoginPage(
           <button class="btn btn-primary" type="submit">
             Log in
           </button>
+          <p class="small muted" style={{ margin: 0 }}>
+            <a href={routes.auth.forgotForm.href()}>Forgot your password?</a>
+          </p>
           <p class="small muted">
             New here?{' '}
             <a href={routes.auth.signupForm.href(null, { searchParams: { returnTo } })}>
@@ -134,4 +137,182 @@ export function SignupPage(
       </Document>
     )
   }
+}
+
+export type CheckEmailKind = 'verify' | 'reset'
+
+export interface CheckEmailInfo {
+  kind: CheckEmailKind
+  email: string
+  /** The SMTP server refused the email. */
+  failed?: boolean
+}
+
+/** Shown after anything that sends an email. */
+export function CheckEmailPage(handle: Handle<{ info: CheckEmailInfo | null }>) {
+  return () => {
+    let { info } = handle.props
+    let resetting = info?.kind === 'reset'
+    return (
+      <Document title="Check your email">
+        <div class="form form-narrow">
+          <h1>Check your email</h1>
+          {info?.failed ? (
+            <p class="alert" role="alert">
+              We couldn’t send the email just now. Wait a minute and try again.
+            </p>
+          ) : resetting ? (
+            <p>
+              If there’s an account for <strong>{info?.email}</strong>, we’ve sent it a link to
+              choose a new password. The link works for 1 hour.
+            </p>
+          ) : info ? (
+            <p>
+              We’ve sent a link to <strong>{info.email}</strong>. Click it to activate your account.
+              The link works for 24 hours.
+            </p>
+          ) : (
+            <p>We’ve sent you an email with a link. Click it to carry on.</p>
+          )}
+          <p class="small muted">
+            Nothing after a few minutes? Check your spam or junk folder.{' '}
+            {resetting ? (
+              <a href={routes.auth.forgotForm.href()}>Send another link</a>
+            ) : (
+              <ResendActivation email={info?.email} />
+            )}
+          </p>
+        </div>
+      </Document>
+    )
+  }
+}
+
+function ResendActivation(handle: Handle<{ email?: string }>) {
+  return () => (
+    <form
+      method="post"
+      action={routes.auth.resendVerification.href()}
+      style={{ display: 'inline' }}
+    >
+      <input type="hidden" name="email" value={handle.props.email ?? ''} />
+      {handle.props.email ? (
+        <button class="link-button" type="submit">
+          Send another link
+        </button>
+      ) : null}
+    </form>
+  )
+}
+
+/** The page an activation link opens. Pressing the button uses the link. */
+export function VerifyPage(handle: Handle<{ token: string; name: string }>) {
+  return () => (
+    <Document title="Activate your account">
+      <form
+        class="form form-narrow"
+        method="post"
+        action={routes.auth.verify.href({ token: handle.props.token })}
+      >
+        <h1>Activate your account</h1>
+        <p>Welcome, {handle.props.name}. One click and you’re in.</p>
+        <button class="btn btn-primary" type="submit">
+          Activate my account
+        </button>
+      </form>
+    </Document>
+  )
+}
+
+/** A link that has expired, was already used, or never existed. */
+export function LinkExpiredPage(handle: Handle<{ kind: CheckEmailKind }>) {
+  return () => {
+    let resetting = handle.props.kind === 'reset'
+    return (
+      <Document title="Link expired">
+        <div class="form form-narrow">
+          <h1>That link has expired</h1>
+          <p>Links work once, for {resetting ? '1 hour' : '24 hours'}. Get a new one below.</p>
+          {resetting ? (
+            <a class="btn btn-primary" href={routes.auth.forgotForm.href()}>
+              Send a new link
+            </a>
+          ) : (
+            <form method="post" action={routes.auth.resendVerification.href()} class="form">
+              <Field label="Email" name="email">
+                <input id="email" name="email" type="email" autoComplete="email" required />
+              </Field>
+              <button class="btn btn-primary" type="submit">
+                Send a new activation link
+              </button>
+            </form>
+          )}
+          <p class="small muted">
+            Already activated? <a href={routes.auth.loginForm.href()}>Log in</a>
+          </p>
+        </div>
+      </Document>
+    )
+  }
+}
+
+export function ForgotPage(handle: Handle<{ email?: string }>) {
+  return () => (
+    <Document title="Forgot your password">
+      <form class="form form-narrow" method="post" action={routes.auth.forgot.href()}>
+        <h1>Forgot your password?</h1>
+        <p class="muted" style={{ margin: 0 }}>
+          Enter your email and we’ll send you a link to choose a new one.
+        </p>
+        <Field label="Email" name="email">
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            defaultValue={handle.props.email}
+          />
+        </Field>
+        <button class="btn btn-primary" type="submit">
+          Send me a link
+        </button>
+        <p class="small muted">
+          Remembered it? <a href={routes.auth.loginForm.href()}>Log in</a>
+        </p>
+      </form>
+    </Document>
+  )
+}
+
+export function ResetPage(handle: Handle<{ token: string; error?: string }>) {
+  return () => (
+    <Document title="Choose a new password">
+      <form
+        class="form form-narrow"
+        method="post"
+        action={routes.auth.reset.href({ token: handle.props.token })}
+      >
+        <h1>Choose a new password</h1>
+        <Field
+          label="New password"
+          name="password"
+          error={handle.props.error}
+          hint="At least 10 characters. You’ll be logged out everywhere else."
+        >
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={10}
+          />
+        </Field>
+        <button class="btn btn-primary" type="submit">
+          Save and log in
+        </button>
+      </form>
+    </Document>
+  )
 }

@@ -48,6 +48,8 @@ export async function createUser(
     name: input.name.trim(),
     password_hash: await hashPassword(input.password),
     created_at: Date.now(),
+    verified_at: null,
+    session_version: 0,
   }
   await db.create(users, user)
   return { id: user.id, email: user.email, name: user.name }
@@ -57,18 +59,70 @@ export async function createUser(
 // doesn't reveal which emails have accounts.
 const dummyHash = await hashPassword(randomBytes(16).toString('hex'))
 
+export type LoginResult =
+  | { ok: true; identity: Identity; sessionVersion: number }
+  | { ok: false; reason: 'mismatch' }
+  | { ok: false; reason: 'unverified'; identity: Identity }
+
 export async function verifyLogin(
   db: Database,
   email: string,
   password: string,
-): Promise<Identity | null> {
+): Promise<LoginResult> {
   let user = await findUserByEmail(db, email)
   let ok = await checkPassword(password, user?.password_hash ?? dummyHash)
-  if (!user || !ok) return null
+  if (!user || !ok) return { ok: false, reason: 'mismatch' }
+  let identity = { id: user.id, email: user.email, name: user.name }
+  // Only someone who knows the password learns the account isn't activated.
+  if (user.verified_at === null) return { ok: false, reason: 'unverified', identity }
+  return { ok: true, identity, sessionVersion: user.session_version }
+}
+
+/**
+ * The account behind a session, or null if it's gone or the password has
+ * been reset since the session was created.
+ */
+export async function getIdentity(
+  db: Database,
+  userId: string,
+  sessionVersion: number,
+): Promise<Identity | null> {
+  let user = await db.find(users, userId)
+  if (!user || user.session_version !== sessionVersion) return null
   return { id: user.id, email: user.email, name: user.name }
 }
 
-export async function getIdentity(db: Database, userId: string): Promise<Identity | null> {
+export async function getUser(db: Database, userId: string) {
+  return db.find(users, userId)
+}
+
+/** Activates an account. Returns the session version to log in with. */
+export async function markVerified(db: Database, userId: string): Promise<number> {
   let user = await db.find(users, userId)
-  return user ? { id: user.id, email: user.email, name: user.name } : null
+  if (!user) throw new Error(`No user ${userId}`)
+  if (user.verified_at === null) {
+    await db.update(users, userId, { verified_at: Date.now() })
+  }
+  return user.session_version
+}
+
+/**
+ * Sets a new password and logs out every existing session. Following a reset
+ * link also proves the email address, so it activates the account too.
+ * Returns the new session version.
+ */
+export async function resetPassword(
+  db: Database,
+  userId: string,
+  password: string,
+): Promise<number> {
+  let user = await db.find(users, userId)
+  if (!user) throw new Error(`No user ${userId}`)
+  let sessionVersion = user.session_version + 1
+  await db.update(users, userId, {
+    password_hash: await hashPassword(password),
+    session_version: sessionVersion,
+    verified_at: user.verified_at ?? Date.now(),
+  })
+  return sessionVersion
 }
