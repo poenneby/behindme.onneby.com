@@ -11,21 +11,6 @@ source directly.
 
 ![A background page: the photo, its rating, a download button and the one-line "Add to Teams" command](docs/screenshot.jpg)
 
-## Deploying
-
-Push to `main`. The cluster pulls `main` within a minute, runs `npm ci` for
-the new commit and swaps the app over to it. There's no build step: Remix 3
-runs the TypeScript source directly. If the new commit fails to install or
-start, the previous one keeps serving.
-
-Hosting lives in [poenneby/onneby.com](https://github.com/poenneby/onneby.com)
-(`k8s/behindme/`, `docs/behindme.md`). That repo also has the logs command
-and the one-time setup.
-
-CI (`.github/workflows/ci.yml`) runs the typecheck and tests on every push
-and PR. The cluster deploys `main` whether or not CI passed, so run
-`npm test` before pushing, or work on a branch and merge when it's green.
-
 ## Developing
 
 Needs Node ≥ 24.3.
