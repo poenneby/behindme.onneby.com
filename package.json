@@ -22,7 +22,7 @@
     "typescript": "^5.9.0"
   },
   "allowScripts": {
-    "sharp@0.34.5": true,
+    "sharp@0.35.5": true,
     "esbuild@0.27.2": true
   }
 }
