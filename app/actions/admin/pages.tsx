@@ -3,6 +3,7 @@ import type { Handle } from 'remix/component'
 import type { AccountSummary } from '../../data/admin.ts'
 import type { Identity } from '../../data/users.ts'
 import { routes } from '../../routes.ts'
+import { Unobfuscated } from '../../ui/unobfuscated.tsx'
 import { Document } from '../document.tsx'
 
 function date(ms: number | null) {
@@ -41,7 +42,7 @@ export function AdminUsersPage(
         </div>
         {notice ? (
           <p class="notice" role="status">
-            {notice}
+            <Unobfuscated text={notice} />
           </p>
         ) : null}
         <form
@@ -130,7 +131,9 @@ function AccountRow(handle: Handle<{ account: AccountSummary; self: boolean; sea
         <td class="cell-name">
           <strong>{account.name}</strong>
           {self ? <span class="muted small"> (you)</span> : null}
-          <div class="muted small">{account.email}</div>
+          <div class="muted small">
+            <Unobfuscated text={account.email} />
+          </div>
         </td>
         <td data-label="Role">
           {account.role === 'admin' ? 'Admin' : 'Member'}
@@ -212,9 +215,13 @@ export function DeleteAccountPage(handle: Handle<{ user: Identity; account: Acco
         >
           <h1>Delete {account.name}’s account?</h1>
           <p>
-            This deletes <strong>{account.email}</strong>, their{' '}
-            {account.uploads === 1 ? '1 background' : `${account.uploads} backgrounds`} and their
-            ratings. It can’t be undone. To keep their backgrounds, disable the account instead.
+            This deletes{' '}
+            <strong>
+              <Unobfuscated text={account.email} />
+            </strong>
+            , their {account.uploads === 1 ? '1 background' : `${account.uploads} backgrounds`} and
+            their ratings. It can’t be undone. To keep their backgrounds, disable the account
+            instead.
           </p>
           <div class="row">
             <button class="btn btn-danger" type="submit">

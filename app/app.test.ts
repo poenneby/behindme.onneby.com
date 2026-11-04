@@ -316,6 +316,15 @@ describe('office backdrops', () => {
     assert.equal(mixedCase.headers.get('Location'), '/check-email')
   })
 
+  it('links the stylesheet by a content hash, so deploys show new styles', async () => {
+    let html = await (await browser()('/')).text()
+    let href = html.match(/<link rel="stylesheet" href="(\/styles\.css\?v=[0-9a-f]{12})"/)?.[1]
+    assert.ok(href, 'versioned stylesheet link')
+    let css = await browser()(href)
+    assert.equal(css.status, 200)
+    assert.match(await css.text(), /table\.users/)
+  })
+
   it('rejects expired activation links', async () => {
     let request = browser()
     let email = 'late@example.com'
@@ -517,6 +526,21 @@ describe('office backdrops', () => {
       )
       assert.equal(login.status, 403)
       assert.equal((await impostor('/admin/users')).status, 302)
+    })
+
+    it('shows email addresses past Cloudflare, escaped', async () => {
+      let page = await (await boss('/admin/users?q=boss@')).text()
+      // Cloudflare's Email Address Obfuscation skips text between these.
+      assert.match(page, /<!--email_off-->boss@example\.com<!--email_on-->/)
+
+      let member = browser()
+      await signUp(member, 'tricky@example.com')
+      let id = await userId('tricky@example.com')
+      await db.exec(sql`update users set name = '<img src=x onerror=alert(1)>' where id = ${id}`)
+      await boss(`/admin/users/${id}/disable`, { method: 'POST' })
+      let notice = await (await boss('/admin/users')).text()
+      assert.ok(!notice.includes('<img src=x'), 'names in notices must be escaped')
+      assert.match(notice, /&lt;img src=x onerror=alert\(1\)&gt;’s account is disabled/)
     })
 
     it('keeps existing accounts on other domains working, and flags them', async () => {

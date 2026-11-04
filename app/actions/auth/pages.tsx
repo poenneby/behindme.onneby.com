@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 
 import { allowedDomainsText } from '../../data/users.ts'
 import { routes } from '../../routes.ts'
+import { Unobfuscated } from '../../ui/unobfuscated.tsx'
 import { Field, type FieldErrors } from '../../ui/field.tsx'
 import { Document } from '../document.tsx'
 
@@ -18,10 +19,14 @@ export function LoginPage(
           action={routes.auth.login.href(null, { searchParams: { returnTo } })}
         >
           <h1>Log in</h1>
-          {notice ? <p class="notice">{notice}</p> : null}
+          {notice ? (
+            <p class="notice">
+              <Unobfuscated text={notice} />
+            </p>
+          ) : null}
           {error ? (
             <p class="alert" role="alert">
-              {error}
+              <Unobfuscated text={error} />
             </p>
           ) : null}
           <Field label="Email" name="email">
@@ -169,13 +174,19 @@ export function CheckEmailPage(handle: Handle<{ info: CheckEmailInfo | null }>) 
             </p>
           ) : resetting ? (
             <p>
-              If there’s an account for <strong>{info?.email}</strong>, we’ve sent it a link to
-              choose a new password. The link works for 1 hour.
+              If there’s an account for{' '}
+              <strong>
+                <Unobfuscated text={info?.email ?? ''} />
+              </strong>
+              , we’ve sent it a link to choose a new password. The link works for 1 hour.
             </p>
           ) : info ? (
             <p>
-              We’ve sent a link to <strong>{info.email}</strong>. Click it to activate your account.
-              The link works for 24 hours.
+              We’ve sent a link to{' '}
+              <strong>
+                <Unobfuscated text={info.email} />
+              </strong>
+              . Click it to activate your account. The link works for 24 hours.
             </p>
           ) : (
             <p>We’ve sent you an email with a link. Click it to carry on.</p>

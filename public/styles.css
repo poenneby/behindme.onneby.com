@@ -25,6 +25,8 @@
     --line: #34332f;
     --accent: #ff4d5e;
     --accent-ink: #1a0004;
+    --ok: #4ade80;
+    --danger: #ff7a70;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     color-scheme: dark;
   }

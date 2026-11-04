@@ -6,6 +6,7 @@ import { config } from '../config.ts'
 import type { Identity } from '../data/users.ts'
 import { ROBOTS } from '../middleware/no-index.ts'
 import { routes } from '../routes.ts'
+import { stylesheetHref } from '../ui/stylesheet.ts'
 
 export const APP_NAME = 'Behind Me'
 const DEFAULT_DESCRIPTION =
@@ -50,7 +51,7 @@ export function Document(handle: Handle<DocumentProps>) {
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <meta name="color-scheme" content="light dark" />
           <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-          <link rel="stylesheet" href="/styles.css" />
+          <link rel="stylesheet" href={stylesheetHref} />
           <title>{title ? `${title} · ${APP_NAME}` : APP_NAME}</title>
           <meta name="robots" content={ROBOTS} />
           <ShareMeta title={title} share={share} />
