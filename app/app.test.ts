@@ -512,6 +512,33 @@ describe('office backdrops', () => {
     })
   })
 
+  it('still starts after a rollback, when the database is ahead of the code', async () => {
+    // A newer release applied a migration, failed to start, and the runner
+    // rolled back to this one.
+    await db.exec(sql`
+      insert into data_table_migrations (id, name, checksum, batch, applied_at)
+      values ('9999', 'from_the_future', 'x', 99, '2099-01-01 00:00:00')
+    `)
+    try {
+      await migrateDatabase()
+      assert.equal((await browser()('/')).status, 200)
+    } finally {
+      await db.exec(sql`delete from data_table_migrations where id = '9999'`)
+    }
+  })
+
+  it('refuses to start when an older migration has gone missing', async () => {
+    await db.exec(sql`
+      insert into data_table_migrations (id, name, checksum, batch, applied_at)
+      values ('0000', 'ghost', 'x', 99, '2000-01-01 00:00:00')
+    `)
+    try {
+      await assert.rejects(() => migrateDatabase(), /missing from current migrations/)
+    } finally {
+      await db.exec(sql`delete from data_table_migrations where id = '0000'`)
+    }
+  })
+
   it('does not serve files outside the image folder', async () => {
     let request = browser()
     for (let path of [
