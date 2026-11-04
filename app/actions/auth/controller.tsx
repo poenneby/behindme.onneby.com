@@ -7,19 +7,19 @@ import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 import type { Session } from 'remix/session'
 
-import { config } from '../../config.ts'
-import { checkToken, createToken, useToken } from '../../data/tokens.ts'
+import { sendActivation, sendReset } from '../../account-mail.ts'
+import { checkToken, useToken } from '../../data/tokens.ts'
 import {
+  allowedDomainsText,
   createUser,
+  emailDomainAllowed,
   findUserByEmail,
   getUser,
   markVerified,
+  recordLogin,
   resetPassword,
   verifyLogin,
-  type Identity,
 } from '../../data/users.ts'
-import { activationEmail, resetEmail } from '../../emails.ts'
-import { sendMail } from '../../mail.ts'
 import { safeReturnTo } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import type { FieldErrors } from '../../ui/field.tsx'
@@ -59,36 +59,19 @@ const MESSAGES: Record<string, string> = {
 /** Pages that carry a token in their URL shouldn't leak it to other sites. */
 const TOKEN_PAGE = { headers: { 'Referrer-Policy': 'no-referrer' } }
 
-function link(path: string) {
-  return new URL(path, config.publicOrigin).href
-}
-
-/**
- * Emails a fresh activation link. Returns false only if the SMTP server
- * refused it; a link sent in the last minute counts as sent.
- */
-async function sendActivation(db: Database, user: Identity): Promise<boolean> {
-  let token = await createToken(db, user.id, 'verify')
-  if (!token) return true
-  let url = link(routes.auth.verifyForm.href({ token }))
-  return sendMail(activationEmail(user.email, user.name, url))
-}
-
-async function sendReset(db: Database, user: Identity): Promise<boolean> {
-  let token = await createToken(db, user.id, 'reset')
-  if (!token) return true
-  let url = link(routes.auth.resetForm.href({ token }))
-  return sendMail(resetEmail(user.email, user.name, url))
-}
-
 function showCheckEmail(session: Session, info: CheckEmailInfo) {
   session.flash('checkEmail', info)
   return redirect(routes.auth.checkEmail.href(), 303)
 }
 
-function logIn(context: Parameters<typeof completeAuth>[0], userId: string, version: number) {
+async function logIn(
+  context: Parameters<typeof completeAuth>[0] & { db: Database },
+  userId: string,
+  version: number,
+) {
   let session = completeAuth(context)
   session.set('auth', { userId, version })
+  await recordLogin(context.db, userId)
 }
 
 export default createController(routes.auth, {
@@ -122,6 +105,16 @@ export default createController(routes.auth, {
           { status: 403 },
         )
       }
+      if (!result.ok && result.reason === 'disabled') {
+        return context.render(
+          <LoginPage
+            returnTo={returnTo}
+            email={email}
+            error="This account has been disabled. Ask an admin if you think that’s a mistake."
+          />,
+          { status: 403 },
+        )
+      }
       if (!result.ok) {
         return context.render(
           <LoginPage
@@ -132,7 +125,7 @@ export default createController(routes.auth, {
           { status: 401 },
         )
       }
-      logIn(context, result.identity.id, result.sessionVersion)
+      await logIn(context, result.identity.id, result.sessionVersion)
       return redirect(returnTo, 303)
     },
 
@@ -158,6 +151,16 @@ export default createController(routes.auth, {
         return context.render(<SignupPage returnTo={returnTo} values={values} errors={errors} />, {
           status: 400,
         })
+      }
+      if (!emailDomainAllowed(result.value.email)) {
+        return context.render(
+          <SignupPage
+            returnTo={returnTo}
+            values={values}
+            errors={{ email: `Use your work email address (${allowedDomainsText()}).` }}
+          />,
+          { status: 400 },
+        )
       }
       if (await findUserByEmail(context.db, result.value.email)) {
         return context.render(
@@ -189,7 +192,7 @@ export default createController(routes.auth, {
       let user = email ? await findUserByEmail(context.db, email) : null
       let sent = true
       // Same answer whether or not the account exists or is already active.
-      if (user && user.verified_at === null) {
+      if (user && user.verified_at === null && user.disabled_at === null) {
         sent = await sendActivation(context.db, user)
       }
       return showCheckEmail(context.session, { kind: 'verify', email, failed: !sent })
@@ -211,7 +214,7 @@ export default createController(routes.auth, {
       if (!userId)
         return context.render(<LinkExpiredPage kind="verify" />, { status: 410, ...TOKEN_PAGE })
       let version = await markVerified(context.db, userId)
-      logIn(context, userId, version)
+      await logIn(context, userId, version)
       return redirect(routes.home.href(), 303)
     },
 
@@ -225,7 +228,7 @@ export default createController(routes.auth, {
       let sent = true
       // Same answer whether or not there's an account, so this can't be used
       // to find out who has one.
-      if (user) sent = await sendReset(context.db, user)
+      if (user && user.disabled_at === null) sent = await sendReset(context.db, user)
       return showCheckEmail(context.session, { kind: 'reset', email, failed: !sent })
     },
 
@@ -252,7 +255,7 @@ export default createController(routes.auth, {
       if (!userId)
         return context.render(<LinkExpiredPage kind="reset" />, { status: 410, ...TOKEN_PAGE })
       let version = await resetPassword(context.db, userId, parsed.value)
-      logIn(context, userId, version)
+      await logIn(context, userId, version)
       return redirect(routes.home.href(), 303)
     },
   },

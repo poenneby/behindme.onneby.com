@@ -10,6 +10,7 @@ import { staticFiles } from 'remix/middleware/static'
 import { createRouter, type RouterContext } from 'remix/router'
 import { createFsSessionStorage } from 'remix/session-storage/fs'
 
+import adminController from './actions/admin/controller.tsx'
 import authController from './actions/auth/controller.tsx'
 import backgroundsController from './actions/backgrounds/controller.tsx'
 import controller from './actions/controller.tsx'
@@ -64,5 +65,6 @@ declare module 'remix' {
 
 router.map(routes, controller)
 router.map(routes.auth, authController)
+router.map(routes.admin, adminController)
 router.map(routes.backgrounds, backgroundsController)
 router.map(routes.locations, locationsController)

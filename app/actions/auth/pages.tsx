@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 
+import { allowedDomainsText } from '../../data/users.ts'
 import { routes } from '../../routes.ts'
 import { Field, type FieldErrors } from '../../ui/field.tsx'
 import { Document } from '../document.tsx'
@@ -101,7 +102,12 @@ export function SignupPage(
               defaultValue={values.name}
             />
           </Field>
-          <Field label="Email" name="email" error={errors.email}>
+          <Field
+            label="Email"
+            name="email"
+            error={errors.email}
+            hint={allowedDomainsText() ? `Your work email (${allowedDomainsText()}).` : undefined}
+          >
             <input
               id="email"
               name="email"

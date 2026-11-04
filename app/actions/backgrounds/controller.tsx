@@ -209,12 +209,16 @@ export default createController(routes.backgrounds, {
       async handler(context) {
         let background = await getBackground(context.db, context.params.id)
         if (!background) return new Response('Not Found', { status: 404 })
-        if (background.userId !== signedInUser(context).id) {
-          return new Response('Only the person who shared it can delete it', { status: 403 })
+        let user = signedInUser(context)
+        let isOwner = background.userId === user.id
+        if (!isOwner && user.role !== 'admin') {
+          return new Response('Only the person who shared it, or an admin, can delete it', {
+            status: 403,
+          })
         }
         await deleteBackground(context.db, background.id)
         await deleteImages(background.id)
-        return redirect(routes.backgrounds.mine.href(), 303)
+        return redirect(isOwner ? routes.backgrounds.mine.href() : routes.home.href(), 303)
       },
     },
 

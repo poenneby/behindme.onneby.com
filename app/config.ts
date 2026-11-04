@@ -30,4 +30,22 @@ export const config = {
    */
   smtpUrl: required('SMTP_URL', ''),
   mailFrom: required('MAIL_FROM', 'Behind Me <noreply@localhost>'),
+  /**
+   * Comma-separated emails of accounts that are always admins. This is how
+   * the first admin exists, and these accounts can't be demoted or disabled
+   * from the website, so nobody can lock everyone out.
+   */
+  /**
+   * Comma-separated email domains people may sign up with, e.g. your
+   * company's. Empty means any domain. Existing accounts on other domains
+   * keep working; admins can see and remove them.
+   */
+  allowedEmailDomains: (process.env.ALLOWED_EMAIL_DOMAINS ?? '')
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean),
+  adminEmails: (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
 }

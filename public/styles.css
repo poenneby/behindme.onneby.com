@@ -167,3 +167,32 @@ main { padding: 32px 0 64px; }
 .tips ul { margin: 8px 0; padding-left: 20px; display: grid; gap: 6px; }
 
 .link-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+
+/* Admin */
+.table-wrap { overflow-x: auto; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
+table.users { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.users th, table.users td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.users th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+table.users tr:last-child td { border-bottom: 0; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.actions form { margin: 0; }
+.btn-small { font-size: 13px; padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill-ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.pill-warn { background: color-mix(in srgb, var(--star) 18%, transparent); color: color-mix(in srgb, var(--star) 70%, var(--text)); }
+.pill-bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.search { font: inherit; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); flex: 1; min-width: 0; max-width: 360px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* On phones the users table becomes one card per account. */
+@media (max-width: 760px) {
+  .table-wrap { background: none; box-shadow: none; overflow: visible; }
+  table.users, table.users tbody, table.users tr, table.users td { display: block; }
+  table.users thead { display: none; }
+  table.users tr { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 12px; }
+  table.users td { border: 0; padding: 3px 0; display: flex; gap: 12px; }
+  table.users td[data-label]::before { content: attr(data-label); color: var(--muted); min-width: 84px; font-size: 13px; }
+  table.users td.cell-name { display: block; padding-bottom: 8px; }
+  table.users td.cell-actions { padding-top: 10px; }
+  .actions { justify-content: flex-start; }
+}

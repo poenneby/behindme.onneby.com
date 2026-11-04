@@ -13,6 +13,11 @@ export const users = table({
     verified_at: c.integer().nullable(),
     /** Bumped on password reset, which logs out every other session. */
     session_version: c.integer(),
+    /** 'member' or 'admin'. Accounts in ADMIN_EMAILS are admins regardless. */
+    role: c.text(),
+    /** Set when an admin disables the account; null while it's active. */
+    disabled_at: c.integer().nullable(),
+    last_login_at: c.integer().nullable(),
   },
 })
 

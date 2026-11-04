@@ -1,4 +1,5 @@
-import { auth, createSessionAuthScheme, requireAuth } from 'remix/middleware/auth'
+import { Auth, auth, createSessionAuthScheme, requireAuth } from 'remix/middleware/auth'
+import type { Middleware } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { db } from '../db.ts'
@@ -40,6 +41,21 @@ export function requireUser() {
       return redirect(routes.auth.loginForm.href(null, { searchParams: { returnTo: target } }))
     },
   })
+}
+
+/** Lets admins through; everyone else gets 403 (or the login page). */
+export function requireAdmin(): Middleware {
+  return (context, next) => {
+    let state = context.get(Auth)
+    if (!state?.ok) {
+      let target = context.request.method === 'GET' ? context.url.pathname : '/'
+      return redirect(routes.auth.loginForm.href(null, { searchParams: { returnTo: target } }))
+    }
+    if ((state as { identity: Identity }).identity.role !== 'admin') {
+      return new Response('Only admins can do that.', { status: 403 })
+    }
+    return next()
+  }
 }
 
 /** Accepts only same-site relative paths, so `returnTo` can't send users elsewhere. */

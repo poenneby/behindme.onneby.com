@@ -52,9 +52,10 @@ export default createController(routes, {
       } catch {
         return new Response('Not Found', { status: 404 })
       }
-      // Ids are never reused, so an image URL always means the same bytes.
+      // Cached for an hour, not forever: when a background is deleted (by its
+      // owner or an admin), Cloudflare and browsers stop serving it soon after.
       return createFileResponse(file, context.request, {
-        cacheControl: 'public, max-age=31536000, immutable',
+        cacheControl: 'public, max-age=3600',
       })
     },
   },
