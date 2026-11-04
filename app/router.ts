@@ -14,7 +14,7 @@ import adminController from './actions/admin/controller.tsx'
 import authController from './actions/auth/controller.tsx'
 import backgroundsController from './actions/backgrounds/controller.tsx'
 import controller from './actions/controller.tsx'
-import locationsController from './actions/locations/controller.tsx'
+import categoriesController from './actions/categories/controller.tsx'
 import { assets } from './assets.ts'
 import { config } from './config.ts'
 import { MAX_UPLOAD_BYTES } from './images.ts'
@@ -67,4 +67,4 @@ router.map(routes, controller)
 router.map(routes.auth, authController)
 router.map(routes.admin, adminController)
 router.map(routes.backgrounds, backgroundsController)
-router.map(routes.locations, locationsController)
+router.map(routes.categories, categoriesController)

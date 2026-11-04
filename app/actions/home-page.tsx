@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-import type { BackgroundSummary, LocationSummary, Sort } from '../data/catalog.ts'
+import type { BackgroundSummary, CategorySummary, Sort } from '../data/catalog.ts'
 import type { Identity } from '../data/users.ts'
 import { routes } from '../routes.ts'
 import { BackgroundGrid } from '../ui/background-card.tsx'
@@ -16,19 +16,19 @@ export function HomePage(
   handle: Handle<{
     user: Identity | null
     items: BackgroundSummary[]
-    locations: LocationSummary[]
+    categories: CategorySummary[]
     sort: Sort
   }>,
 ) {
   return () => {
-    let { user, items, locations, sort } = handle.props
+    let { user, items, categories, sort } = handle.props
     return (
       <Document user={user} section="browse" share={{ path: routes.home.href() }}>
         <div class="hero">
-          <h1>Teams backgrounds from our offices</h1>
+          <h1>Teams backgrounds, shared by colleagues</h1>
           <p>
-            Real photos from the places we work, shared by colleagues. Pick one, add it to Teams
-            with one command, and rate the ones you like.
+            Photos and animations to put behind you on calls. Pick one, add it to Teams with one
+            command, and rate the ones you like.
           </p>
         </div>
         <div class="toolbar">
@@ -43,15 +43,15 @@ export function HomePage(
               </a>
             ))}
           </nav>
-          {locations.length > 0 ? (
-            <div class="chips" aria-label="Offices">
-              {locations.slice(0, 12).map((location) => (
+          {categories.length > 0 ? (
+            <div class="chips" aria-label="Categories">
+              {categories.slice(0, 12).map((category) => (
                 <a
-                  key={location.slug}
+                  key={category.slug}
                   class="chip"
-                  href={routes.locations.show.href({ slug: location.slug })}
+                  href={routes.categories.show.href({ slug: category.slug })}
                 >
-                  {location.name} · {location.count}
+                  {category.name} · {category.count}
                 </a>
               ))}
             </div>
@@ -59,7 +59,7 @@ export function HomePage(
         </div>
         <BackgroundGrid
           items={items}
-          empty="Nothing here yet. Be the first to share a photo of your office."
+          empty="Nothing here yet. Be the first to share a background."
         />
       </Document>
     )

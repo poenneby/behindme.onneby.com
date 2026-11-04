@@ -33,7 +33,7 @@ export function BackgroundCard(handle: Handle<{ item: BackgroundSummary }>) {
             {item.title}
           </span>
           <span class="card-meta">
-            <span>{item.locationName}</span>
+            <span>{item.categoryName}</span>
             <Stars rating={item.rating} count={item.ratingCount} />
           </span>
         </div>

@@ -107,7 +107,7 @@ describe('office backdrops', () => {
   it('serves the home page to anonymous visitors', async () => {
     let response = await browser()('/')
     assert.equal(response.status, 200)
-    assert.match(await response.text(), /Teams backgrounds from our offices/)
+    assert.match(await response.text(), /Teams backgrounds, shared by colleagues/)
   })
 
   it('sends anonymous uploaders to log in first', async () => {
@@ -121,7 +121,7 @@ describe('office backdrops', () => {
     await signUp(request, 'small@example.com')
     let response = await request(
       '/upload',
-      form({ photo: await photo(800, 600), title: 'Tiny', location: 'Paris' }),
+      form({ photo: await photo(800, 600), title: 'Tiny', category: 'Nature' }),
     )
     assert.equal(response.status, 400)
     assert.match(await response.text(), /at least 1280×720/)
@@ -135,7 +135,7 @@ describe('office backdrops', () => {
       form({
         photo: await photo(3000, 2000),
         title: "Rooftop'; Remove-Item C:\\ -Recurse #",
-        location: 'Paris – Opéra',
+        category: 'Architecture',
       }),
     )
     assert.equal(upload.status, 303)
@@ -177,7 +177,7 @@ describe('office backdrops', () => {
     assert.match(await (await rater(showPath)).text(), /Rated 4\.0 out of 5 by 1/)
 
     // Install scripts carry the image URLs but never user-supplied text.
-    for (let script of [`${showPath}/teams.ps1`, `/locations/paris-opera/teams.sh`]) {
+    for (let script of [`${showPath}/teams.ps1`, `/categories/architecture/teams.sh`]) {
       let body = await (await browser()(script)).text()
       assert.match(body, new RegExp(`/images/${id}\\.jpg`))
       assert.match(body, /_thumb\.jpg/)
@@ -197,7 +197,7 @@ describe('office backdrops', () => {
     let original = await animatedGif(800, 600, 4)
     let upload = await request(
       '/upload',
-      form({ photo: original, title: 'Lift doors', location: 'Lyon' }),
+      form({ photo: original, title: 'Lift doors', category: 'Nature' }),
     )
     assert.equal(upload.status, 303)
     let showPath = upload.headers.get('Location')!
@@ -231,7 +231,7 @@ describe('office backdrops', () => {
     assert.match(sh, /_thumb\.png"/)
 
     let download = await request(`${showPath}/download`)
-    assert.match(download.headers.get('Content-Disposition') ?? '', /lyon-lift-doors\.gif/)
+    assert.match(download.headers.get('Content-Disposition') ?? '', /nature-lift-doors\.gif/)
   })
 
   it('rejects animated GIFs that are too small', async () => {
@@ -239,7 +239,7 @@ describe('office backdrops', () => {
     await signUp(request, 'tiny@example.com')
     let response = await request(
       '/upload',
-      form({ photo: await animatedGif(320, 240, 3), title: 'Tiny', location: 'Lyon' }),
+      form({ photo: await animatedGif(320, 240, 3), title: 'Tiny', category: 'Nature' }),
     )
     assert.equal(response.status, 400)
     assert.match(await response.text(), /need at least 640×360/)
@@ -250,7 +250,7 @@ describe('office backdrops', () => {
     await signUp(request, 'still@example.com')
     let upload = await request(
       '/upload',
-      form({ photo: await animatedGif(1600, 900, 1), title: 'Still', location: 'Lyon' }),
+      form({ photo: await animatedGif(1600, 900, 1), title: 'Still', category: 'Nature' }),
     )
     assert.equal(upload.status, 303)
     let id = upload.headers.get('Location')!.split('/').pop()!
@@ -475,7 +475,7 @@ describe('office backdrops', () => {
       await signUp(member, email)
       let upload = await member(
         '/upload',
-        form({ photo: await photo(1600, 900), title: 'Last day', location: 'Lyon' }),
+        form({ photo: await photo(1600, 900), title: 'Last day', category: 'Nature' }),
       )
       let showPath = upload.headers.get('Location')!
       let backgroundId = showPath.split('/').pop()!
@@ -566,7 +566,7 @@ describe('office backdrops', () => {
       await signUp(owner, 'owner2@example.com')
       let upload = await owner(
         '/upload',
-        form({ photo: await photo(1600, 900), title: 'Not allowed', location: 'Lyon' }),
+        form({ photo: await photo(1600, 900), title: 'Not allowed', category: 'Nature' }),
       )
       let showPath = upload.headers.get('Location')!
       let other = browser()
@@ -603,6 +603,22 @@ describe('office backdrops', () => {
     } finally {
       await db.exec(sql`delete from data_table_migrations where id = '0000'`)
     }
+  })
+
+  it('redirects old office addresses to categories', async () => {
+    let request = browser()
+    for (let [from, to] of [
+      ['/locations', '/categories'],
+      ['/locations/nature', '/categories/nature'],
+      ['/locations/nature/teams.ps1', '/categories/nature/teams.ps1'],
+      ['/locations/nature/teams.sh', '/categories/nature/teams.sh'],
+    ]) {
+      let response = await request(from)
+      assert.equal(response.status, 301, from)
+      assert.equal(response.headers.get('Location'), to, from)
+    }
+    let page = await (await request('/categories/nature')).text()
+    assert.match(page, /Add all \d+ to Teams|Add to Teams/)
   })
 
   it('does not serve files outside the image folder', async () => {

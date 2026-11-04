@@ -34,6 +34,11 @@ export const authTokens = table({
   },
 })
 
+/**
+ * Categories. The table keeps its old name from when backgrounds were
+ * grouped by office: migrations only ever add, so a rollback can always
+ * start the previous release (see db/migrations/README.md).
+ */
 export const locations = table({
   name: 'locations',
   columns: {
@@ -72,5 +77,5 @@ export const ratings = table({
 })
 
 export type User = TableRow<typeof users>
-export type Location = TableRow<typeof locations>
+export type Category = TableRow<typeof locations>
 export type Background = TableRow<typeof backgrounds>

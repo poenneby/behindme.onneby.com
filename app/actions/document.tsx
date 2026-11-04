@@ -10,7 +10,7 @@ import { stylesheetHref } from '../ui/stylesheet.ts'
 
 export const APP_NAME = 'Behind Me'
 const DEFAULT_DESCRIPTION =
-  'Microsoft Teams backgrounds photographed in our offices. Pick one and add it to Teams with one command.'
+  'Microsoft Teams backgrounds shared by colleagues. Pick one and add it to Teams with one command.'
 
 /** What a shared link unfurls to in Teams, Slack, LinkedIn and friends. */
 export interface ShareInfo {
@@ -25,7 +25,7 @@ const DEFAULT_IMAGE = {
   path: '/og-default.jpg',
   width: 1200,
   height: 630,
-  alt: 'Behind Me: Teams backgrounds from our offices',
+  alt: 'Behind Me: Teams backgrounds, shared by colleagues',
 }
 
 export interface DocumentProps {
@@ -33,7 +33,7 @@ export interface DocumentProps {
   title?: string
   user?: Identity | null
   /** Highlights the matching nav item. */
-  section?: 'browse' | 'locations' | 'teams' | 'upload' | 'mine' | 'admin'
+  section?: 'browse' | 'categories' | 'teams' | 'upload' | 'mine' | 'admin'
   share?: ShareInfo
   head?: RemixNode
 }
@@ -74,8 +74,8 @@ export function Document(handle: Handle<DocumentProps>) {
                 <a href={routes.home.href()} aria-current={current('browse')}>
                   Browse
                 </a>
-                <a href={routes.locations.index.href()} aria-current={current('locations')}>
-                  Offices
+                <a href={routes.categories.index.href()} aria-current={current('categories')}>
+                  Categories
                 </a>
                 <a href={routes.teamsHelp.href()} aria-current={current('teams')}>
                   Adding to Teams

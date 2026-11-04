@@ -3,7 +3,7 @@ import { createFileResponse } from 'remix/response/file'
 import { createController } from 'remix/router'
 
 import { assets } from '../assets.ts'
-import { listBackgrounds, listLocations, type Sort } from '../data/catalog.ts'
+import { listBackgrounds, listCategories, type Sort } from '../data/catalog.ts'
 import { resolveImagePath } from '../images.ts'
 import { routes } from '../routes.ts'
 import { currentUser } from '../ui/current-user.ts'
@@ -26,12 +26,12 @@ export default createController(routes, {
     async home(context) {
       let requested = context.url.searchParams.get('sort') as Sort | null
       let sort: Sort = requested && SORTS.includes(requested) ? requested : 'top'
-      let [items, locations] = await Promise.all([
+      let [items, categories] = await Promise.all([
         listBackgrounds(context.db, { sort }),
-        listLocations(context.db),
+        listCategories(context.db),
       ])
       return context.render(
-        <HomePage user={currentUser(context)} items={items} locations={locations} sort={sort} />,
+        <HomePage user={currentUser(context)} items={items} categories={categories} sort={sort} />,
       )
     },
 
