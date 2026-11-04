@@ -1,23 +1,46 @@
 import { completeAuth } from 'remix/auth'
+import type { Database } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as checks from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
-import { Session } from 'remix/session'
+import type { Session } from 'remix/session'
 
-import { createUser, findUserByEmail, verifyLogin } from '../../data/users.ts'
+import { config } from '../../config.ts'
+import { checkToken, createToken, useToken } from '../../data/tokens.ts'
+import {
+  createUser,
+  findUserByEmail,
+  getUser,
+  markVerified,
+  resetPassword,
+  verifyLogin,
+  type Identity,
+} from '../../data/users.ts'
+import { activationEmail, resetEmail } from '../../emails.ts'
+import { sendMail } from '../../mail.ts'
 import { safeReturnTo } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import type { FieldErrors } from '../../ui/field.tsx'
-import { LoginPage, SignupPage } from './pages.tsx'
+import {
+  CheckEmailPage,
+  ForgotPage,
+  LinkExpiredPage,
+  LoginPage,
+  ResetPage,
+  SignupPage,
+  VerifyPage,
+  type CheckEmailInfo,
+} from './pages.tsx'
 
 const trimmed = s.string().transform((value) => value.trim())
+const password = s.string().pipe(checks.minLength(10), checks.maxLength(200))
 
 const signupForm = f.object({
   name: f.field(trimmed.pipe(checks.minLength(1), checks.maxLength(60))),
   email: f.field(trimmed.pipe(checks.email())),
-  password: f.field(s.string().pipe(checks.minLength(10), checks.maxLength(200))),
+  password: f.field(password),
 })
 
 function issueField(issue: { path?: ReadonlyArray<unknown> }) {
@@ -33,23 +56,73 @@ const MESSAGES: Record<string, string> = {
   password: 'Use at least 10 characters.',
 }
 
+/** Pages that carry a token in their URL shouldn't leak it to other sites. */
+const TOKEN_PAGE = { headers: { 'Referrer-Policy': 'no-referrer' } }
+
+function link(path: string) {
+  return new URL(path, config.publicOrigin).href
+}
+
+/**
+ * Emails a fresh activation link. Returns false only if the SMTP server
+ * refused it; a link sent in the last minute counts as sent.
+ */
+async function sendActivation(db: Database, user: Identity): Promise<boolean> {
+  let token = await createToken(db, user.id, 'verify')
+  if (!token) return true
+  let url = link(routes.auth.verifyForm.href({ token }))
+  return sendMail(activationEmail(user.email, user.name, url))
+}
+
+async function sendReset(db: Database, user: Identity): Promise<boolean> {
+  let token = await createToken(db, user.id, 'reset')
+  if (!token) return true
+  let url = link(routes.auth.resetForm.href({ token }))
+  return sendMail(resetEmail(user.email, user.name, url))
+}
+
+function showCheckEmail(session: Session, info: CheckEmailInfo) {
+  session.flash('checkEmail', info)
+  return redirect(routes.auth.checkEmail.href(), 303)
+}
+
+function logIn(context: Parameters<typeof completeAuth>[0], userId: string, version: number) {
+  let session = completeAuth(context)
+  session.set('auth', { userId, version })
+}
+
 export default createController(routes.auth, {
   actions: {
     loginForm(context) {
       if (context.auth.ok) return redirect(routes.home.href())
       let returnTo = safeReturnTo(context.url.searchParams.get('returnTo'))
-      let notice = context.session.get('notice')
-      return context.render(
-        <LoginPage returnTo={returnTo} notice={typeof notice === 'string' ? notice : undefined} />,
-      )
+      return context.render(<LoginPage returnTo={returnTo} />)
     },
 
     async login(context) {
       let returnTo = safeReturnTo(context.url.searchParams.get('returnTo'))
       let email = String(context.formData.get('email') ?? '')
-      let password = String(context.formData.get('password') ?? '')
-      let user = await verifyLogin(context.db, email, password)
-      if (!user) {
+      let result = await verifyLogin(
+        context.db,
+        email,
+        String(context.formData.get('password') ?? ''),
+      )
+      if (!result.ok && result.reason === 'unverified') {
+        let sent = await sendActivation(context.db, result.identity)
+        return context.render(
+          <LoginPage
+            returnTo={returnTo}
+            email={email}
+            error={
+              sent
+                ? `Activate your account first: we’ve sent a link to ${result.identity.email}.`
+                : 'Activate your account first. We couldn’t send the link just now; try again in a minute.'
+            }
+          />,
+          { status: 403 },
+        )
+      }
+      if (!result.ok) {
         return context.render(
           <LoginPage
             returnTo={returnTo}
@@ -59,8 +132,7 @@ export default createController(routes.auth, {
           { status: 401 },
         )
       }
-      let session = completeAuth(context)
-      session.set('auth', { userId: user.id })
+      logIn(context, result.identity.id, result.sessionVersion)
       return redirect(returnTo, 303)
     },
 
@@ -98,14 +170,89 @@ export default createController(routes.auth, {
         )
       }
       let user = await createUser(context.db, result.value)
-      let session = completeAuth(context)
-      session.set('auth', { userId: user.id })
-      return redirect(returnTo, 303)
+      let sent = await sendActivation(context.db, user)
+      return showCheckEmail(context.session, { kind: 'verify', email: user.email, failed: !sent })
     },
 
     logout(context) {
-      let session = context.get(Session)
-      session.destroy()
+      context.session.destroy()
+      return redirect(routes.home.href(), 303)
+    },
+
+    checkEmail(context) {
+      let info = context.session.get('checkEmail') as CheckEmailInfo | undefined
+      return context.render(<CheckEmailPage info={info ?? null} />)
+    },
+
+    async resendVerification(context) {
+      let email = String(context.formData.get('email') ?? '').trim()
+      let user = email ? await findUserByEmail(context.db, email) : null
+      let sent = true
+      // Same answer whether or not the account exists or is already active.
+      if (user && user.verified_at === null) {
+        sent = await sendActivation(context.db, user)
+      }
+      return showCheckEmail(context.session, { kind: 'verify', email, failed: !sent })
+    },
+
+    async verifyForm(context) {
+      let userId = await checkToken(context.db, context.params.token, 'verify')
+      let user = userId ? await getUser(context.db, userId) : null
+      if (!user)
+        return context.render(<LinkExpiredPage kind="verify" />, { status: 410, ...TOKEN_PAGE })
+      return context.render(
+        <VerifyPage token={context.params.token} name={user.name} />,
+        TOKEN_PAGE,
+      )
+    },
+
+    async verify(context) {
+      let userId = await useToken(context.db, context.params.token, 'verify')
+      if (!userId)
+        return context.render(<LinkExpiredPage kind="verify" />, { status: 410, ...TOKEN_PAGE })
+      let version = await markVerified(context.db, userId)
+      logIn(context, userId, version)
+      return redirect(routes.home.href(), 303)
+    },
+
+    forgotForm(context) {
+      return context.render(<ForgotPage />)
+    },
+
+    async forgot(context) {
+      let email = String(context.formData.get('email') ?? '').trim()
+      let user = email ? await findUserByEmail(context.db, email) : null
+      let sent = true
+      // Same answer whether or not there's an account, so this can't be used
+      // to find out who has one.
+      if (user) sent = await sendReset(context.db, user)
+      return showCheckEmail(context.session, { kind: 'reset', email, failed: !sent })
+    },
+
+    async resetForm(context) {
+      let userId = await checkToken(context.db, context.params.token, 'reset')
+      if (!userId)
+        return context.render(<LinkExpiredPage kind="reset" />, { status: 410, ...TOKEN_PAGE })
+      return context.render(<ResetPage token={context.params.token} />, TOKEN_PAGE)
+    },
+
+    async reset(context) {
+      let { token } = context.params
+      let parsed = s.parseSafe(password, String(context.formData.get('password') ?? ''))
+      if (!parsed.success) {
+        if (!(await checkToken(context.db, token, 'reset'))) {
+          return context.render(<LinkExpiredPage kind="reset" />, { status: 410, ...TOKEN_PAGE })
+        }
+        return context.render(<ResetPage token={token} error={MESSAGES.password} />, {
+          status: 400,
+          ...TOKEN_PAGE,
+        })
+      }
+      let userId = await useToken(context.db, token, 'reset')
+      if (!userId)
+        return context.render(<LinkExpiredPage kind="reset" />, { status: 410, ...TOKEN_PAGE })
+      let version = await resetPassword(context.db, userId, parsed.value)
+      logIn(context, userId, version)
       return redirect(routes.home.href(), 303)
     },
   },

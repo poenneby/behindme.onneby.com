@@ -13,6 +13,16 @@ export const routes = route({
     loginForm: get('/login'),
     login: post('/login'),
     logout: post('/logout'),
+    checkEmail: get('/check-email'),
+    // Opening the link shows a button; only pressing it uses the token, so
+    // mail scanners that follow every link can't use it up.
+    verifyForm: get('/verify/:token'),
+    verify: post('/verify/:token'),
+    resendVerification: post('/verify'),
+    forgotForm: get('/forgot'),
+    forgot: post('/forgot'),
+    resetForm: get('/reset/:token'),
+    reset: post('/reset/:token'),
   },
   backgrounds: {
     uploadForm: get('/upload'),

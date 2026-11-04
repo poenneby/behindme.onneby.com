@@ -28,6 +28,8 @@ npm run typecheck
 |----------|---------------|-------|
 | `SESSION_SECRET` | dev-only value | Required in production |
 | `PUBLIC_ORIGIN` | `http://localhost:44100` | Required in production. Used in install scripts |
+| `SMTP_URL` | none: emails are printed to the console | Required in production. Sends activation and password-reset emails, e.g. `smtps://user:password@smtp.example.com:465` |
+| `MAIL_FROM` | `Behind Me <noreply@localhost>` | Required in production. The sender, e.g. `Behind Me <noreply@onneby.com>` |
 | `DATA_DIR` | `./data` | SQLite database, images, sessions |
 | `PORT` | `44100` | |
 

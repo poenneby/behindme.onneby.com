@@ -23,4 +23,11 @@ export const config = {
    * so their URLs must never come from the request's Host header.
    */
   publicOrigin: new URL(required('PUBLIC_ORIGIN', 'http://localhost:44100')).origin,
+  /**
+   * Where activation and password-reset emails are sent from, e.g.
+   * smtps://user:password@smtp.example.com:465. Outside production, emails
+   * are printed to the console instead.
+   */
+  smtpUrl: required('SMTP_URL', ''),
+  mailFrom: required('MAIL_FROM', 'Behind Me <noreply@localhost>'),
 }
