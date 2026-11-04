@@ -4,7 +4,7 @@ import type { Database } from 'remix/data-table'
 import { deleteImages } from '../images.ts'
 import { deleteBackground } from './catalog.ts'
 import { users } from './tables.ts'
-import { isBuiltInAdmin, markVerified, type Role } from './users.ts'
+import { emailDomainAllowed, isBuiltInAdmin, markVerified, type Role } from './users.ts'
 
 export interface AccountSummary {
   id: string
@@ -12,6 +12,8 @@ export interface AccountSummary {
   name: string
   role: Role
   builtInAdmin: boolean
+  /** Not on an ALLOWED_EMAIL_DOMAINS domain (made before the rule, say). */
+  otherDomain: boolean
   createdAt: number
   verifiedAt: number | null
   disabledAt: number | null
@@ -28,6 +30,7 @@ function toSummary(row: Record<string, unknown>): AccountSummary {
     name: String(row.name),
     role: builtInAdmin || row.role === 'admin' ? 'admin' : 'member',
     builtInAdmin,
+    otherDomain: !emailDomainAllowed(email),
     createdAt: Number(row.created_at),
     verifiedAt: row.verified_at === null ? null : Number(row.verified_at),
     disabledAt: row.disabled_at === null ? null : Number(row.disabled_at),

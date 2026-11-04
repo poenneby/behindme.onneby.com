@@ -5,6 +5,7 @@ import { beforeAll, describe, it } from 'remix/test'
 import { sql } from 'remix/data-table'
 
 import { db, migrateDatabase } from './db.ts'
+import { createUser, markVerified } from './data/users.ts'
 import { outbox } from './mail.ts'
 import { ROBOTS } from './middleware/no-index.ts'
 import { router } from './router.ts'
@@ -292,6 +293,29 @@ describe('office backdrops', () => {
     assert.equal(relogin.status, 303)
   })
 
+  it('only lets people sign up with an allowed email domain', async () => {
+    // The test script sets ALLOWED_EMAIL_DOMAINS=example.com.
+    for (let email of ['someone@gmail.com', 'x@example.com.evil.test', 'x@notexample.com']) {
+      let sentBefore = outbox.length
+      let response = await browser()(
+        '/signup',
+        form({ name: 'Outsider', email, password: 'a long enough password' }),
+      )
+      assert.equal(response.status, 400, email)
+      assert.match(await response.text(), /Use your work email address \(…@example\.com\)/)
+      assert.equal(outbox.length, sentBefore, email)
+      let found = await db.exec(sql`select 1 from users where email = ${email}`)
+      assert.equal(found.rows?.length, 0, email)
+    }
+    assert.match(await (await browser()('/signup')).text(), /Your work email \(…@example\.com\)/)
+
+    let mixedCase = await browser()(
+      '/signup',
+      form({ name: 'Caps', email: 'Caps@Example.COM', password: 'a long enough password' }),
+    )
+    assert.equal(mixedCase.headers.get('Location'), '/check-email')
+  })
+
   it('rejects expired activation links', async () => {
     let request = browser()
     let email = 'late@example.com'
@@ -493,6 +517,24 @@ describe('office backdrops', () => {
       )
       assert.equal(login.status, 403)
       assert.equal((await impostor('/admin/users')).status, 302)
+    })
+
+    it('keeps existing accounts on other domains working, and flags them', async () => {
+      // An account made before the domain rule existed.
+      let legacy = await createUser(db, {
+        name: 'Legacy',
+        email: 'legacy@onneby.test',
+        password: 'a long enough password',
+      })
+      await markVerified(db, legacy.id)
+      let login = await browser()(
+        '/login',
+        form({ email: 'legacy@onneby.test', password: 'a long enough password' }),
+      )
+      assert.equal(login.status, 303)
+      let page = await (await boss('/admin/users?q=legacy')).text()
+      assert.match(page, /Other domain/)
+      assert.doesNotMatch(await (await boss('/admin/users?q=boss@')).text(), /Other domain/)
     })
 
     it('lets admins, but not other members, delete any background', async () => {

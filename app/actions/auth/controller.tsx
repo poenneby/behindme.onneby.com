@@ -10,7 +10,9 @@ import type { Session } from 'remix/session'
 import { sendActivation, sendReset } from '../../account-mail.ts'
 import { checkToken, useToken } from '../../data/tokens.ts'
 import {
+  allowedDomainsText,
   createUser,
+  emailDomainAllowed,
   findUserByEmail,
   getUser,
   markVerified,
@@ -149,6 +151,16 @@ export default createController(routes.auth, {
         return context.render(<SignupPage returnTo={returnTo} values={values} errors={errors} />, {
           status: 400,
         })
+      }
+      if (!emailDomainAllowed(result.value.email)) {
+        return context.render(
+          <SignupPage
+            returnTo={returnTo}
+            values={values}
+            errors={{ email: `Use your work email address (${allowedDomainsText()}).` }}
+          />,
+          { status: 400 },
+        )
       }
       if (await findUserByEmail(context.db, result.value.email)) {
         return context.render(

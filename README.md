@@ -30,6 +30,7 @@ npm run typecheck
 | `PUBLIC_ORIGIN` | `http://localhost:44100` | Required in production. Used in install scripts |
 | `SMTP_URL` | none: emails are printed to the console | Required in production. Sends activation and password-reset emails, e.g. `smtps://user:password@smtp.example.com:465` |
 | `MAIL_FROM` | `Behind Me <noreply@localhost>` | Required in production. The sender, e.g. `Behind Me <noreply@onneby.com>` |
+| `ALLOWED_EMAIL_DOMAINS` | none: any domain | Comma-separated domains people may sign up with, e.g. your company's. Existing accounts on other domains keep working and are flagged on the users page |
 | `ADMIN_EMAILS` | none | Comma-separated emails of built-in admins. They can manage users at `/admin/users`, and can't be demoted or disabled from the website |
 | `DATA_DIR` | `./data` | SQLite database, images, sessions |
 | `PORT` | `44100` | |

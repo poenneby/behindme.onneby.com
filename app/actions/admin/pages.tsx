@@ -138,6 +138,11 @@ function AccountRow(handle: Handle<{ account: AccountSummary; self: boolean; sea
         </td>
         <td data-label="Status">
           <span class={`pill pill-${state.tone}`}>{state.label}</span>
+          {account.otherDomain ? (
+            <div class="muted small" title="Not on an allowed email domain">
+              Other domain
+            </div>
+          ) : null}
         </td>
         <td data-label="Uploads">{account.uploads}</td>
         <td data-label="Joined">{date(account.createdAt)}</td>

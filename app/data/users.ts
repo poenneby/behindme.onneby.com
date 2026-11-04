@@ -20,6 +20,21 @@ export function isBuiltInAdmin(email: string) {
   return config.adminEmails.includes(email.toLowerCase())
 }
 
+/** Whether new accounts may use this address (ALLOWED_EMAIL_DOMAINS). */
+export function emailDomainAllowed(email: string) {
+  if (config.allowedEmailDomains.length === 0) return true
+  let domain = email
+    .slice(email.lastIndexOf('@') + 1)
+    .trim()
+    .toLowerCase()
+  return config.allowedEmailDomains.includes(domain)
+}
+
+/** "…@example.com" or "…@a.com or …@b.com", for messages. */
+export function allowedDomainsText() {
+  return config.allowedEmailDomains.map((domain) => `…@${domain}`).join(' or ')
+}
+
 export function toIdentity(user: User): Identity {
   let builtInAdmin = isBuiltInAdmin(user.email)
   return {
