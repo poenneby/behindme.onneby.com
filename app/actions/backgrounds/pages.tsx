@@ -141,6 +141,20 @@ export function ShowPage(
                 </p>
               )}
             </div>
+
+            {user?.role === 'admin' && !isOwner ? (
+              <div class="panel">
+                <h2>Admin</h2>
+                <p class="small muted" style={{ margin: 0 }}>
+                  Shared by {bg.authorName}. Deleting it removes it for everyone.
+                </p>
+                <form method="post" action={routes.backgrounds.destroy.href({ id: bg.id })}>
+                  <button class="btn btn-danger" type="submit">
+                    Delete this background
+                  </button>
+                </form>
+              </div>
+            ) : null}
           </aside>
         </div>
       </Document>

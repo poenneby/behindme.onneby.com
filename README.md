@@ -30,6 +30,7 @@ npm run typecheck
 | `PUBLIC_ORIGIN` | `http://localhost:44100` | Required in production. Used in install scripts |
 | `SMTP_URL` | none: emails are printed to the console | Required in production. Sends activation and password-reset emails, e.g. `smtps://user:password@smtp.example.com:465` |
 | `MAIL_FROM` | `Behind Me <noreply@localhost>` | Required in production. The sender, e.g. `Behind Me <noreply@onneby.com>` |
+| `ADMIN_EMAILS` | none | Comma-separated emails of built-in admins. They can manage users at `/admin/users`, and can't be demoted or disabled from the website |
 | `DATA_DIR` | `./data` | SQLite database, images, sessions |
 | `PORT` | `44100` | |
 
@@ -67,7 +68,7 @@ update. `/teams` in the app explains the alternatives to users.
 - `app/router.ts`: middleware (logging, cross-origin protection, sessions, auth, uploads, rendering)
 - `app/middleware/no-index.ts`: keeps the site out of search engines (`X-Robots-Tag` on every response). `robots.txt` allows crawling on purpose, so crawlers can see it
 - `app/actions/document.tsx`: the page shell, including Open Graph tags so shared links unfurl with the photo
-- `app/actions/`: controllers and pages, one folder per route group (`auth`, `backgrounds`, `locations`)
+- `app/actions/`: controllers and pages, one folder per route group (`admin`, `auth`, `backgrounds`, `locations`)
 - `app/data/`: tables, queries, password hashing
 - `app/images.ts`: upload processing with sharp (1920×1080 JPEG, Teams thumbnail, WebP preview, metadata stripped)
 - `app/teams.ts`: the Windows/macOS install scripts

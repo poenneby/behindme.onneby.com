@@ -1,10 +1,35 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import type { Database } from 'remix/data-table'
 
+import { config } from '../config.ts'
 import { newId } from './ids.ts'
 import { users, type User } from './tables.ts'
 
-export type Identity = Pick<User, 'id' | 'email' | 'name'>
+export type Role = 'member' | 'admin'
+
+export interface Identity {
+  id: string
+  email: string
+  name: string
+  role: Role
+  /** Listed in ADMIN_EMAILS: always an admin, can't be demoted or disabled. */
+  builtInAdmin: boolean
+}
+
+export function isBuiltInAdmin(email: string) {
+  return config.adminEmails.includes(email.toLowerCase())
+}
+
+export function toIdentity(user: User): Identity {
+  let builtInAdmin = isBuiltInAdmin(user.email)
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: builtInAdmin || user.role === 'admin' ? 'admin' : 'member',
+    builtInAdmin,
+  }
+}
 
 const KEY_LENGTH = 64
 
@@ -50,9 +75,12 @@ export async function createUser(
     created_at: Date.now(),
     verified_at: null,
     session_version: 0,
+    role: 'member',
+    disabled_at: null,
+    last_login_at: null,
   }
   await db.create(users, user)
-  return { id: user.id, email: user.email, name: user.name }
+  return toIdentity(user)
 }
 
 // A fixed hash to compare against when the email is unknown, so login timing
@@ -63,6 +91,7 @@ export type LoginResult =
   | { ok: true; identity: Identity; sessionVersion: number }
   | { ok: false; reason: 'mismatch' }
   | { ok: false; reason: 'unverified'; identity: Identity }
+  | { ok: false; reason: 'disabled' }
 
 export async function verifyLogin(
   db: Database,
@@ -72,15 +101,16 @@ export async function verifyLogin(
   let user = await findUserByEmail(db, email)
   let ok = await checkPassword(password, user?.password_hash ?? dummyHash)
   if (!user || !ok) return { ok: false, reason: 'mismatch' }
-  let identity = { id: user.id, email: user.email, name: user.name }
-  // Only someone who knows the password learns the account isn't activated.
+  let identity = toIdentity(user)
+  // Only someone who knows the password learns the account's state.
+  if (user.disabled_at !== null) return { ok: false, reason: 'disabled' }
   if (user.verified_at === null) return { ok: false, reason: 'unverified', identity }
   return { ok: true, identity, sessionVersion: user.session_version }
 }
 
 /**
- * The account behind a session, or null if it's gone or the password has
- * been reset since the session was created.
+ * The account behind a session, or null if it's gone, disabled, or its
+ * password has been reset since the session was created.
  */
 export async function getIdentity(
   db: Database,
@@ -88,8 +118,12 @@ export async function getIdentity(
   sessionVersion: number,
 ): Promise<Identity | null> {
   let user = await db.find(users, userId)
-  if (!user || user.session_version !== sessionVersion) return null
-  return { id: user.id, email: user.email, name: user.name }
+  if (!user || user.disabled_at !== null || user.session_version !== sessionVersion) return null
+  return toIdentity(user)
+}
+
+export async function recordLogin(db: Database, userId: string) {
+  await db.update(users, userId, { last_login_at: Date.now() })
 }
 
 export async function getUser(db: Database, userId: string) {

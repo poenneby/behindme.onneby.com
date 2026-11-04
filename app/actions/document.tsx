@@ -32,7 +32,7 @@ export interface DocumentProps {
   title?: string
   user?: Identity | null
   /** Highlights the matching nav item. */
-  section?: 'browse' | 'locations' | 'teams' | 'upload' | 'mine'
+  section?: 'browse' | 'locations' | 'teams' | 'upload' | 'mine' | 'admin'
   share?: ShareInfo
   head?: RemixNode
 }
@@ -82,6 +82,11 @@ export function Document(handle: Handle<DocumentProps>) {
                 {user ? (
                   <a href={routes.backgrounds.mine.href()} aria-current={current('mine')}>
                     My uploads
+                  </a>
+                ) : null}
+                {user?.role === 'admin' ? (
+                  <a href={routes.admin.users.href()} aria-current={current('admin')}>
+                    Users
                   </a>
                 ) : null}
               </nav>

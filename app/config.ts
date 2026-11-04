@@ -30,4 +30,13 @@ export const config = {
    */
   smtpUrl: required('SMTP_URL', ''),
   mailFrom: required('MAIL_FROM', 'Behind Me <noreply@localhost>'),
+  /**
+   * Comma-separated emails of accounts that are always admins. This is how
+   * the first admin exists, and these accounts can't be demoted or disabled
+   * from the website, so nobody can lock everyone out.
+   */
+  adminEmails: (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
 }

@@ -35,6 +35,16 @@ export const routes = route({
     windows: get('/b/:id/teams.ps1'),
     mac: get('/b/:id/teams.sh'),
   },
+  admin: {
+    users: get('/admin/users'),
+    role: post('/admin/users/:id/role'),
+    disable: post('/admin/users/:id/disable'),
+    enable: post('/admin/users/:id/enable'),
+    activate: post('/admin/users/:id/activate'),
+    sendReset: post('/admin/users/:id/reset'),
+    deleteForm: get('/admin/users/:id/delete'),
+    destroy: post('/admin/users/:id/delete'),
+  },
   locations: {
     index: get('/locations'),
     show: get('/locations/:slug'),
