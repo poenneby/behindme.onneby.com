@@ -156,6 +156,8 @@ describe('office backdrops', () => {
 
     let image = await owner(`/images/${id}.jpg`)
     assert.equal(image.headers.get('X-Robots-Tag'), ROBOTS)
+    // Short-lived, so deleting a background takes effect at the CDN too.
+    assert.equal(image.headers.get('Cache-Control'), 'public, max-age=3600')
     assert.equal(image.status, 200)
     let meta = await sharp(new Uint8Array(await image.arrayBuffer())).metadata()
     assert.equal(meta.width, 1920)
@@ -453,6 +455,44 @@ describe('office backdrops', () => {
       assert.equal((await boss(showPath)).status, 404)
       assert.equal((await boss(`/images/${backgroundId}.jpg`)).status, 404)
       assert.equal((await member('/upload')).status, 302)
+    })
+
+    it('refuses admin actions from members, and cross-site posts from admins', async () => {
+      let member = browser()
+      await signUp(member, 'sneaky@example.com')
+      let id = await userId('sneaky@example.com')
+      for (let action of ['role', 'disable', 'enable', 'activate', 'reset', 'delete']) {
+        let response = await member(`/admin/users/${id}/${action}`, form({ role: 'admin' }))
+        assert.equal(response.status, 403, action)
+      }
+      assert.equal((await member('/admin/users')).status, 403)
+
+      // A page on another site making an admin's browser post an action.
+      let victim = await userId('member@example.com')
+      let forged = await boss(`/admin/users/${victim}/delete`, {
+        method: 'POST',
+        headers: { 'Sec-Fetch-Site': 'cross-site', Origin: 'https://evil.example' },
+      })
+      assert.equal(forged.status, 403)
+      assert.ok(await userId('member@example.com'))
+    })
+
+    it('needs the built-in admin email to be proven before it means anything', async () => {
+      // Someone signs up with a built-in admin's address they don't own.
+      let impostor = browser()
+      let signup = await impostor(
+        '/signup',
+        form({ name: 'Impostor', email: 'boss2@example.com', password: 'a long enough password' }),
+      )
+      assert.equal(signup.status, 303)
+      // Without the emailed link there's no session at all, let alone admin.
+      assert.equal((await impostor('/admin/users')).status, 302)
+      let login = await impostor(
+        '/login',
+        form({ email: 'boss2@example.com', password: 'a long enough password' }),
+      )
+      assert.equal(login.status, 403)
+      assert.equal((await impostor('/admin/users')).status, 302)
     })
 
     it('lets admins, but not other members, delete any background', async () => {

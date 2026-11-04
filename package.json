@@ -7,7 +7,7 @@
     "dev": "NODE_ENV=development node --watch --import remix/node-tsx server.ts",
     "hmr": "NODE_ENV=development node hmr.ts",
     "start": "NODE_ENV=production node --import remix/node-tsx server.ts",
-    "test": "NODE_ENV=test DATA_DIR=tmp/test-data ADMIN_EMAILS=boss@example.com remix test",
+    "test": "NODE_ENV=test DATA_DIR=tmp/test-data ADMIN_EMAILS=boss@example.com,boss2@example.com remix test",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
