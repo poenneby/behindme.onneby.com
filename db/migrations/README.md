@@ -21,3 +21,7 @@ to cope with the extra tables and columns.
 
 To remove something, first ship code that stops using it, then drop it in a
 later migration.
+
+The one exception so far is `0005_categories`, which renamed the office
+table and column while the site had no data: a rollback of that release
+would have needed fixing forward rather than rolling back.

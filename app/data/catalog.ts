@@ -2,7 +2,7 @@ import { rawSql, sql } from 'remix/data-table'
 import type { Database } from 'remix/data-table'
 
 import { newId, slugify } from './ids.ts'
-import { backgrounds, locations, ratings, type Category } from './tables.ts'
+import { backgrounds, categories, ratings, type Category } from './tables.ts'
 
 export type Sort = 'top' | 'new' | 'popular'
 
@@ -38,11 +38,11 @@ const ORDER_BY: Record<Sort, string> = {
 const SELECT = `
   select
     b.id, b.title, b.description, b.teams_guid, b.animated, b.downloads, b.created_at, b.user_id,
-    u.name as author_name, l.name as category_name, l.slug as category_slug,
+    u.name as author_name, c.name as category_name, c.slug as category_slug,
     coalesce(avg(r.stars), 0) as rating, count(r.stars) as rating_count
   from backgrounds b
   join users u on u.id = b.user_id
-  join locations l on l.id = b.location_id
+  join categories c on c.id = b.category_id
   left join ratings r on r.background_id = b.id
 `
 
@@ -71,7 +71,7 @@ export async function listBackgrounds(
   let where: string[] = []
   let values: unknown[] = []
   if (options.categorySlug) {
-    where.push('l.slug = ?')
+    where.push('c.slug = ?')
     values.push(options.categorySlug)
   }
   if (options.userId) {
@@ -96,11 +96,11 @@ export async function getBackground(db: Database, id: string) {
 
 export async function listCategories(db: Database): Promise<CategorySummary[]> {
   let result = await db.exec(sql`
-    select l.slug, l.name, count(b.id) as count
-    from locations l
-    join backgrounds b on b.location_id = l.id
-    group by l.id
-    order by count desc, l.name asc
+    select c.slug, c.name, count(b.id) as count
+    from categories c
+    join backgrounds b on b.category_id = c.id
+    group by c.id
+    order by count desc, c.name asc
   `)
   return (result.rows ?? []).map((row) => ({
     slug: String(row.slug),
@@ -110,7 +110,7 @@ export async function listCategories(db: Database): Promise<CategorySummary[]> {
 }
 
 export async function getCategory(db: Database, slug: string): Promise<Category | null> {
-  return db.findOne(locations, { where: { slug } })
+  return db.findOne(categories, { where: { slug } })
 }
 
 /** Finds a category by its slug, creating it from the typed name if it's new. */
@@ -120,7 +120,7 @@ export async function findOrCreateCategory(db: Database, name: string): Promise<
   let existing = await getCategory(db, slug)
   if (existing) return existing
   let category = { id: newId(), slug, name: cleanName, created_at: Date.now() }
-  await db.create(locations, category)
+  await db.create(categories, category)
   return category
 }
 
@@ -139,7 +139,7 @@ export async function createBackground(
   await db.create(backgrounds, {
     id: input.id,
     user_id: input.userId,
-    location_id: input.categoryId,
+    category_id: input.categoryId,
     title: input.title,
     description: input.description,
     teams_guid: input.teamsGuid,
@@ -153,7 +153,7 @@ export async function deleteBackground(db: Database, id: string) {
   await db.delete(backgrounds, id)
   // Drop categories nobody uses any more so the list stays tidy.
   await db.exec(sql`
-    delete from locations where id not in (select distinct location_id from backgrounds)
+    delete from categories where id not in (select distinct category_id from backgrounds)
   `)
 }
 
