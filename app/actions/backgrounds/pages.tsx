@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-import type { BackgroundSummary, LocationSummary } from '../../data/catalog.ts'
+import type { BackgroundSummary, CategorySummary } from '../../data/catalog.ts'
 import type { Identity } from '../../data/users.ts'
 import {
   ANIMATED_MIN_HEIGHT,
@@ -42,7 +42,7 @@ export function ShowPage(
         title={bg.title}
         share={{
           path: routes.backgrounds.show.href({ id: bg.id }),
-          description: `${bg.locationName}, shared by ${bg.authorName}. Add it to Microsoft Teams with one command.`,
+          description: `${bg.categoryName}, shared by ${bg.authorName}. Add it to Microsoft Teams with one command.`,
           image: bg.animated
             ? { path: imageHref(bg.id, 'full', true), alt: bg.title }
             : { path: imageHref(bg.id, 'full'), width: 1920, height: 1080, alt: bg.title },
@@ -64,8 +64,11 @@ export function ShowPage(
           <aside class="stack">
             <div class="panel">
               <div class="stack" style={{ gap: '4px' }}>
-                <a class="small muted" href={routes.locations.show.href({ slug: bg.locationSlug })}>
-                  {bg.locationName}
+                <a
+                  class="small muted"
+                  href={routes.categories.show.href({ slug: bg.categorySlug })}
+                >
+                  {bg.categoryName}
                 </a>
                 <h1>
                   {bg.animated ? <span class="badge">Animated</span> : null}
@@ -165,13 +168,13 @@ export function ShowPage(
 export function UploadPage(
   handle: Handle<{
     user: Identity
-    locations: LocationSummary[]
-    values?: { title?: string; location?: string; description?: string }
+    categories: CategorySummary[]
+    values?: { title?: string; category?: string; description?: string }
     errors?: FieldErrors
   }>,
 ) {
   return () => {
-    let { user, locations, values = {}, errors = {} } = handle.props
+    let { user, categories, values = {}, errors = {} } = handle.props
     return (
       <Document user={user} title="Share a background" section="upload">
         <form
@@ -183,8 +186,8 @@ export function UploadPage(
           <div class="hero">
             <h1>Share a background</h1>
             <p>
-              Landscape photos work best: a meeting room, the view, the coffee corner. Avoid faces,
-              whiteboards and screens with anything confidential on them.
+              Landscape photos work best: a view, a room, a street, something you made. Avoid
+              people’s faces, and anything confidential such as screens or whiteboards.
             </p>
           </div>
           <details class="tips">
@@ -242,23 +245,23 @@ export function UploadPage(
             />
           </Field>
           <Field
-            label="Office"
-            name="location"
-            error={errors.location}
-            hint="Pick an existing office or type a new one, e.g. “Paris – Saint-Lazare”."
+            label="Category"
+            name="category"
+            error={errors.category}
+            hint="Pick an existing category or type a new one, e.g. Nature, City or Abstract."
           >
             <input
-              id="location"
-              name="location"
-              list="locations"
+              id="category"
+              name="category"
+              list="categories"
               required
               maxLength={60}
-              defaultValue={values.location}
+              defaultValue={values.category}
               autoComplete="off"
             />
-            <datalist id="locations">
-              {locations.map((location) => (
-                <option key={location.slug} value={location.name} />
+            <datalist id="categories">
+              {categories.map((category) => (
+                <option key={category.slug} value={category.name} />
               ))}
             </datalist>
           </Field>

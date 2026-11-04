@@ -11,11 +11,11 @@ import {
   countDownload,
   createBackground,
   deleteBackground,
-  findOrCreateLocation,
+  findOrCreateCategory,
   getBackground,
   getUserRating,
   listBackgrounds,
-  listLocations,
+  listCategories,
   rateBackground,
 } from '../../data/catalog.ts'
 import { newId, slugify } from '../../data/ids.ts'
@@ -44,7 +44,7 @@ const trimmed = s.string().transform((value) => value.trim().replace(/\s+/g, ' '
 
 const uploadForm = f.object({
   title: f.field(trimmed.pipe(checks.minLength(1), checks.maxLength(80))),
-  location: f.field(trimmed.pipe(checks.minLength(2), checks.maxLength(60))),
+  category: f.field(trimmed.pipe(checks.minLength(2), checks.maxLength(60))),
   description: f.field(
     s
       .defaulted(s.string(), '')
@@ -55,7 +55,7 @@ const uploadForm = f.object({
 
 const MESSAGES: Record<string, string> = {
   title: 'Give it a short title (up to 80 characters).',
-  location: 'Which office is this? (2–60 characters)',
+  category: 'Give it a category (2–60 characters).',
   description: 'Keep the description under 500 characters.',
 }
 
@@ -75,8 +75,8 @@ export default createController(routes.backgrounds, {
     uploadForm: {
       middleware: [requireUser()],
       async handler(context) {
-        let locations = await listLocations(context.db)
-        return context.render(<UploadPage user={signedInUser(context)} locations={locations} />)
+        let categories = await listCategories(context.db)
+        return context.render(<UploadPage user={signedInUser(context)} categories={categories} />)
       },
     },
 
@@ -86,7 +86,7 @@ export default createController(routes.backgrounds, {
         let user = signedInUser(context)
         let values = {
           title: String(context.formData.get('title') ?? ''),
-          location: String(context.formData.get('location') ?? ''),
+          category: String(context.formData.get('category') ?? ''),
           description: String(context.formData.get('description') ?? ''),
         }
         let errors: FieldErrors = {}
@@ -115,20 +115,20 @@ export default createController(routes.backgrounds, {
 
         if (!result.success || Object.keys(errors).length > 0) {
           await deleteImages(id)
-          let locations = await listLocations(context.db)
+          let categories = await listCategories(context.db)
           return context.render(
-            <UploadPage user={user} locations={locations} values={values} errors={errors} />,
+            <UploadPage user={user} categories={categories} values={values} errors={errors} />,
             { status: 400 },
           )
         }
 
         try {
-          let location = await findOrCreateLocation(context.db, result.value.location)
+          let category = await findOrCreateCategory(context.db, result.value.category)
           await createBackground(context.db, {
             id,
             teamsGuid: randomUUID(),
             userId: user.id,
-            locationId: location.id,
+            categoryId: category.id,
             title: result.value.title,
             description: result.value.description,
             animated,
@@ -178,7 +178,7 @@ export default createController(routes.backgrounds, {
       await countDownload(context.db, [background.id])
       let response = await createFileResponse(openLazyFile(filePath), context.request)
       let ext = background.animated ? 'gif' : 'jpg'
-      let name = `${slugify(background.locationName)}-${slugify(background.title)}.${ext}`
+      let name = `${slugify(background.categoryName)}-${slugify(background.title)}.${ext}`
       response.headers.set('Content-Disposition', `attachment; filename="${name}"`)
       return response
     },

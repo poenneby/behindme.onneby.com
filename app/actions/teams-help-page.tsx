@@ -13,7 +13,7 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
       share={{
         path: routes.teamsHelp.href(),
         description:
-          'Three ways to add an office background to Microsoft Teams, from one command to org-wide.',
+          'Three ways to add a background to Microsoft Teams, from one command to org-wide.',
       }}
     >
       <article class="prose">
@@ -30,8 +30,8 @@ export function TeamsHelpPage(handle: Handle<{ user: Identity | null }>) {
           Every background has an <strong>Add to Teams</strong> box with a one-line command. On
           Windows, paste it into PowerShell. On a Mac, paste it into Terminal. It downloads the
           1920×1080 image and the small preview Teams expects into Teams’ own background folder for
-          your user account. It doesn’t need admin rights and doesn’t touch anything else. Office
-          pages have the same box to add every photo from that office at once.
+          your user account. It doesn’t need admin rights and doesn’t touch anything else. Category
+          pages have the same box to add every background in that category at once.
         </p>
         <p>
           Running a command you copied from a website should make you pause, so each box has a{' '}

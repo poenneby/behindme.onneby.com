@@ -23,7 +23,7 @@ export function AnimatedHelpPage(handle: Handle<{ user: Identity | null }>) {
       section="teams"
       share={{
         path: routes.animatedHelp.href(),
-        description: 'How to turn a short clip of your office into an animated Teams background.',
+        description: 'How to turn a short video clip into an animated Teams background.',
       }}
     >
       <article class="prose">

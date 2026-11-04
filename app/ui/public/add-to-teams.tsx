@@ -7,7 +7,7 @@ export interface AddToTeamsProps {
   macCommand: string
   windowsScriptHref: string
   macScriptHref: string
-  /** Count shown in the heading, e.g. for "Add all 12" on an office page. */
+  /** Count shown in the heading, e.g. for "Add all 12" on a category page. */
   count?: number
 }
 

@@ -1,8 +1,8 @@
 # Behind Me
 
-Teams backgrounds from our offices. Colleagues share photos of the places we
-work, rate each other's, and add any of them to Microsoft Teams with one
-pasted command. Live at https://behindme.onneby.com.
+Teams backgrounds, shared by colleagues. People share photos and animated
+GIFs by category, rate each other's, and add any of them to Microsoft Teams
+with one pasted command. Live at https://behindme.onneby.com.
 
 Built with [Remix 3](https://remix.run): one `remix` dependency (plus `sharp`
 for images), server-rendered components, one hydrated component, SQLite
@@ -69,7 +69,7 @@ update. `/teams` in the app explains the alternatives to users.
 - `app/router.ts`: middleware (logging, cross-origin protection, sessions, auth, uploads, rendering)
 - `app/middleware/no-index.ts`: keeps the site out of search engines (`X-Robots-Tag` on every response). `robots.txt` allows crawling on purpose, so crawlers can see it
 - `app/actions/document.tsx`: the page shell, including Open Graph tags so shared links unfurl with the photo
-- `app/actions/`: controllers and pages, one folder per route group (`admin`, `auth`, `backgrounds`, `locations`)
+- `app/actions/`: controllers and pages, one folder per route group (`admin`, `auth`, `backgrounds`, `categories`)
 - `app/data/`: tables, queries, password hashing
 - `app/images.ts`: upload processing with sharp (1920×1080 JPEG, Teams thumbnail, WebP preview, metadata stripped)
 - `app/teams.ts`: the Windows/macOS install scripts

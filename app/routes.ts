@@ -45,10 +45,16 @@ export const routes = route({
     deleteForm: get('/admin/users/:id/delete'),
     destroy: post('/admin/users/:id/delete'),
   },
-  locations: {
-    index: get('/locations'),
-    show: get('/locations/:slug'),
-    windows: get('/locations/:slug/teams.ps1'),
-    mac: get('/locations/:slug/teams.sh'),
+  categories: {
+    index: get('/categories'),
+    show: get('/categories/:slug'),
+    windows: get('/categories/:slug/teams.ps1'),
+    mac: get('/categories/:slug/teams.sh'),
+    // Addresses from when categories were offices, redirected so saved
+    // links and install commands keep working.
+    oldIndex: get('/locations'),
+    oldShow: get('/locations/:slug'),
+    oldWindows: get('/locations/:slug/teams.ps1'),
+    oldMac: get('/locations/:slug/teams.sh'),
   },
 })
