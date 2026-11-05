@@ -2,7 +2,7 @@ import type { Database } from 'remix/data-table'
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
 
-import { sendReset } from '../../account-mail.ts'
+import { notifyDecision, sendReset } from '../../account-mail.ts'
 import {
   activateAccount,
   deleteAccount,
@@ -12,11 +12,22 @@ import {
   setRole,
   type AccountSummary,
 } from '../../data/admin.ts'
-import type { Role } from '../../data/users.ts'
+import {
+  deleteBackground,
+  getBackground,
+  listAllCategories,
+  listBackgrounds,
+  renameCategory,
+  reviewBackground,
+} from '../../data/catalog.ts'
+import { dismissReports, listOpenReports } from '../../data/reports.ts'
+import { getUser, type Role } from '../../data/users.ts'
+import { deleteImages } from '../../images.ts'
 import { requireAdmin } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import { signedInUser } from '../../ui/current-user.ts'
 import { AdminUsersPage, DeleteAccountPage } from './pages.tsx'
+import { AdminCategoriesPage, ReviewPage } from './review-pages.tsx'
 
 /** What the account actions below use from the request context. */
 interface ActionContext {
@@ -58,9 +69,119 @@ async function target(
 
 const notFound = () => new Response('Not Found', { status: 404 })
 
+/** Back to an admin page with a one-off message. */
+function backTo(
+  context: { session: { flash(key: string, value: unknown): void } },
+  href: string,
+  notice: string,
+) {
+  context.session.flash('adminNotice', notice)
+  return redirect(href, 303)
+}
+
 export default createController(routes.admin, {
   middleware: [requireAdmin()],
   actions: {
+    async review(context) {
+      let notice = context.session.get('adminNotice')
+      let pending = await listBackgrounds(context.db, { status: 'pending', sort: 'new' })
+      let reports = await listOpenReports(context.db)
+      let reported = []
+      for (let report of reports) {
+        let background = await getBackground(context.db, report.backgroundId)
+        if (background) reported.push({ background, reasons: report.reasons })
+      }
+      return context.render(
+        <ReviewPage
+          user={signedInUser(context)}
+          pending={pending.reverse()}
+          reported={reported}
+          notice={typeof notice === 'string' ? notice : undefined}
+        />,
+      )
+    },
+
+    async approve(context) {
+      let background = await getBackground(context.db, context.params.id)
+      if (!background) return notFound()
+      await reviewBackground(context.db, background.id, {
+        status: 'approved',
+        reviewerId: signedInUser(context).id,
+      })
+      let uploader = await getUser(context.db, background.userId)
+      if (uploader) await notifyDecision(uploader, background, { status: 'approved' })
+      return backTo(context, routes.admin.review.href(), `Approved “${background.title}”.`)
+    },
+
+    async reject(context) {
+      let background = await getBackground(context.db, context.params.id)
+      if (!background) return notFound()
+      let reason = String(context.formData.get('reason') ?? '')
+        .trim()
+        .slice(0, 300)
+      await reviewBackground(context.db, background.id, {
+        status: 'rejected',
+        reviewerId: signedInUser(context).id,
+        reason,
+      })
+      let uploader = await getUser(context.db, background.userId)
+      if (uploader) await notifyDecision(uploader, background, { status: 'rejected', reason })
+      return backTo(
+        context,
+        routes.admin.review.href(),
+        `Didn’t approve “${background.title}”. ${background.authorName} has been told.`,
+      )
+    },
+
+    async dismissReports(context) {
+      let background = await getBackground(context.db, context.params.id)
+      if (!background) return notFound()
+      await dismissReports(context.db, background.id)
+      return backTo(
+        context,
+        routes.admin.review.href(),
+        `Kept “${background.title}” and closed its reports.`,
+      )
+    },
+
+    async removeReported(context) {
+      let background = await getBackground(context.db, context.params.id)
+      if (!background) return notFound()
+      await deleteBackground(context.db, background.id)
+      await deleteImages(background.id)
+      return backTo(context, routes.admin.review.href(), `Removed “${background.title}”.`)
+    },
+
+    async categories(context) {
+      let notice = context.session.get('adminNotice')
+      return context.render(
+        <AdminCategoriesPage
+          user={signedInUser(context)}
+          categories={await listAllCategories(context.db)}
+          notice={typeof notice === 'string' ? notice : undefined}
+        />,
+      )
+    },
+
+    async renameCategory(context) {
+      let name = String(context.formData.get('name') ?? '').trim()
+      let back = routes.admin.categories.href()
+      if (name.length < 2 || name.length > 60) {
+        return backTo(context, back, 'Category names need 2–60 characters.')
+      }
+      let before = await listAllCategories(context.db)
+      let old = before.find((category) => category.slug === context.params.slug)
+      let outcome = await renameCategory(context.db, context.params.slug, name)
+      if (!outcome || !old) return notFound()
+      let message =
+        outcome.result === 'merged'
+          ? `Moved ${old.count} ${old.count === 1 ? 'background' : 'backgrounds'} from “${old.name}” into “${outcome.category.name}”.`
+          : outcome.result === 'renamed'
+            ? `Renamed “${old.name}” to “${outcome.category.name}”.`
+            : 'Nothing to change.'
+      return backTo(context, back, message)
+    },
+
     async users(context) {
       let search = context.url.searchParams.get('q') ?? ''
       let notice = context.session.get('adminNotice')

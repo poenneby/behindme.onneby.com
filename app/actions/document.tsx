@@ -33,7 +33,15 @@ export interface DocumentProps {
   title?: string
   user?: Identity | null
   /** Highlights the matching nav item. */
-  section?: 'browse' | 'categories' | 'teams' | 'upload' | 'mine' | 'admin'
+  section?:
+    | 'browse'
+    | 'categories'
+    | 'teams'
+    | 'upload'
+    | 'mine'
+    | 'admin'
+    | 'review'
+    | 'admin-categories'
   share?: ShareInfo
   head?: RemixNode
 }
@@ -43,6 +51,7 @@ export function Document(handle: Handle<DocumentProps>) {
     let { children, head, title, user, section, share } = handle.props
     let { href, importMap, preloads } = scriptEntry
     let current = (name: DocumentProps['section']) => (section === name ? 'page' : undefined)
+    let adminSection = section === 'review' || section === 'admin' || section === 'admin-categories'
 
     return (
       <html lang="en">
@@ -86,8 +95,11 @@ export function Document(handle: Handle<DocumentProps>) {
                   </a>
                 ) : null}
                 {user?.role === 'admin' ? (
-                  <a href={routes.admin.users.href()} aria-current={current('admin')}>
-                    Users
+                  <a
+                    href={routes.admin.review.href()}
+                    aria-current={adminSection ? 'page' : undefined}
+                  >
+                    Admin
                   </a>
                 ) : null}
               </nav>
@@ -114,7 +126,25 @@ export function Document(handle: Handle<DocumentProps>) {
             </div>
           </header>
           <main>
-            <div class="wrap">{children}</div>
+            <div class="wrap">
+              {adminSection ? (
+                <nav class="tabs admin-tabs" aria-label="Admin">
+                  <a href={routes.admin.review.href()} aria-current={current('review')}>
+                    Review
+                  </a>
+                  <a href={routes.admin.users.href()} aria-current={current('admin')}>
+                    Users
+                  </a>
+                  <a
+                    href={routes.admin.categories.href()}
+                    aria-current={current('admin-categories')}
+                  >
+                    Categories
+                  </a>
+                </nav>
+              ) : null}
+              {children}
+            </div>
           </main>
           <footer class="site-footer">
             <div class="wrap">

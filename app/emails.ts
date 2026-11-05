@@ -56,3 +56,65 @@ export function resetEmail(to: string, name: string, url: string): Mail {
     html: layout('Reset your password', body, 'Choose a new password', url, footer),
   }
 }
+
+export function reviewNeededEmail(
+  to: string,
+  adminName: string,
+  title: string,
+  uploader: string,
+  url: string,
+): Mail {
+  let body = `Hi ${adminName}, ${uploader} shared “${title}”. It stays hidden until an admin approves it.`
+  let footer = 'You get this because you’re an admin.'
+  return {
+    to,
+    subject: `New background to review: ${title}`,
+    text: `${body}\n\nReview it:\n${url}\n\n${footer}\n`,
+    html: layout('A new background to review', body, 'Review it', url, footer),
+  }
+}
+
+export function approvedEmail(to: string, name: string, title: string, url: string): Mail {
+  let body = `Hi ${name}, “${title}” has been approved. Everyone can see it and add it to Teams now.`
+  let footer = 'Thanks for sharing it.'
+  return {
+    to,
+    subject: `Your background “${title}” is live`,
+    text: `${body}\n\nSee it:\n${url}\n\n${footer}\n`,
+    html: layout('Your background is live', body, 'See it', url, footer),
+  }
+}
+
+export function notApprovedEmail(
+  to: string,
+  name: string,
+  title: string,
+  reason: string | null,
+  url: string,
+): Mail {
+  let body = `Hi ${name}, “${title}” wasn’t approved.${reason ? ` The reason given: ${reason}` : ''}`
+  let footer = 'Only you and admins can see it. You can delete it, or share a different photo.'
+  return {
+    to,
+    subject: `Your background “${title}” wasn’t approved`,
+    text: `${body}\n\nSee it:\n${url}\n\n${footer}\n`,
+    html: layout('Your background wasn’t approved', body, 'See it', url, footer),
+  }
+}
+
+export function reportedEmail(
+  to: string,
+  adminName: string,
+  title: string,
+  reason: string,
+  url: string,
+): Mail {
+  let body = `Hi ${adminName}, someone reported “${title}”: ${reason}`
+  let footer = 'You get this because you’re an admin. It stays visible until you remove it.'
+  return {
+    to,
+    subject: `Background reported: ${title}`,
+    text: `${body}\n\nReview reports:\n${url}\n\n${footer}\n`,
+    html: layout('A background was reported', body, 'Review reports', url, footer),
+  }
+}

@@ -21,6 +21,7 @@ export function ShowPage(
     user: Identity | null
     background: BackgroundSummary
     myRating: number | null
+    notice?: string
     windowsCommand: string
     macCommand: string
     windowsScriptHref: string
@@ -28,8 +29,10 @@ export function ShowPage(
   }>,
 ) {
   return () => {
-    let { user, background: bg, myRating } = handle.props
+    let { user, background: bg, myRating, notice } = handle.props
     let isOwner = user?.id === bg.userId
+    let mayChange = isOwner || user?.role === 'admin'
+    let approved = bg.status === 'approved'
     let shared = new Date(bg.createdAt).toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'long',
@@ -62,6 +65,31 @@ export function ShowPage(
           </div>
 
           <aside class="stack">
+            {notice ? (
+              <p class="notice" role="status" style={{ margin: 0 }}>
+                {notice}
+              </p>
+            ) : null}
+            {bg.status === 'pending' ? (
+              <div class="panel status-panel">
+                <h2>Waiting for review</h2>
+                <p class="small" style={{ margin: 0 }}>
+                  Only you and admins can see it for now. You’ll get an email when an admin has
+                  looked at it.
+                </p>
+              </div>
+            ) : bg.status === 'rejected' ? (
+              <div class="panel status-panel status-rejected">
+                <h2>Not approved</h2>
+                <p class="small" style={{ margin: 0 }}>
+                  {bg.rejectionReason
+                    ? `An admin didn’t approve it: ${bg.rejectionReason}`
+                    : 'An admin didn’t approve it.'}{' '}
+                  Only you and admins can see it.
+                </p>
+              </div>
+            ) : null}
+
             <div class="panel">
               <div class="stack" style={{ gap: '4px' }}>
                 <a
@@ -79,7 +107,7 @@ export function ShowPage(
                   {bg.downloads === 1 ? 'time' : 'times'}
                 </span>
               </div>
-              <Stars rating={bg.rating} count={bg.ratingCount} />
+              {approved ? <Stars rating={bg.rating} count={bg.ratingCount} /> : null}
               <div class="row">
                 {/* `download` makes the browser save the file. Without it, Remix's
                     client-side navigation fetches the image and renders it as a page. */}
@@ -90,73 +118,130 @@ export function ShowPage(
                 >
                   {bg.animated ? 'Download GIF' : 'Download 1920×1080'}
                 </a>
+                {mayChange ? (
+                  <a class="btn" href={routes.backgrounds.editForm.href({ id: bg.id })}>
+                    Edit
+                  </a>
+                ) : null}
               </div>
             </div>
 
-            <div class="panel">
-              <AddToTeams
-                windowsCommand={handle.props.windowsCommand}
-                macCommand={handle.props.macCommand}
-                windowsScriptHref={handle.props.windowsScriptHref}
-                macScriptHref={handle.props.macScriptHref}
-              />
-            </div>
+            {approved ? (
+              <div class="panel">
+                <AddToTeams
+                  windowsCommand={handle.props.windowsCommand}
+                  macCommand={handle.props.macCommand}
+                  windowsScriptHref={handle.props.windowsScriptHref}
+                  macScriptHref={handle.props.macScriptHref}
+                />
+              </div>
+            ) : null}
 
-            <div class="panel">
-              <h2>{isOwner ? 'Your background' : 'Rate it'}</h2>
-              {isOwner ? (
+            {isOwner ? (
+              <div class="panel">
+                <h2>Your background</h2>
                 <form method="post" action={routes.backgrounds.destroy.href({ id: bg.id })}>
                   <button class="btn btn-danger" type="submit">
                     Delete this background
                   </button>
                 </form>
-              ) : user ? (
-                <form method="post" action={routes.backgrounds.rate.href({ id: bg.id })}>
-                  <div class="rate" role="group" aria-label="Your rating">
-                    {[5, 4, 3, 2, 1].map((n) => (
-                      <button
-                        key={n}
-                        type="submit"
-                        name="stars"
-                        value={String(n)}
-                        class={myRating !== null && n <= myRating ? 'on' : undefined}
-                        aria-label={`${n} star${n === 1 ? '' : 's'}`}
-                        aria-pressed={myRating === n ? 'true' : 'false'}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
-                  <p class="small muted" style={{ margin: '6px 0 0' }}>
-                    {myRating ? `You gave it ${myRating}. Click to change.` : 'Click a star.'}
+              </div>
+            ) : approved ? (
+              <div class="panel">
+                <h2>Rate it</h2>
+                {user ? (
+                  <form method="post" action={routes.backgrounds.rate.href({ id: bg.id })}>
+                    <div class="rate" role="group" aria-label="Your rating">
+                      {[5, 4, 3, 2, 1].map((n) => (
+                        <button
+                          key={n}
+                          type="submit"
+                          name="stars"
+                          value={String(n)}
+                          class={myRating !== null && n <= myRating ? 'on' : undefined}
+                          aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                          aria-pressed={myRating === n ? 'true' : 'false'}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    <p class="small muted" style={{ margin: '6px 0 0' }}>
+                      {myRating ? `You gave it ${myRating}. Click to change.` : 'Click a star.'}
+                    </p>
+                  </form>
+                ) : (
+                  <p class="small muted" style={{ margin: 0 }}>
+                    <a
+                      href={routes.auth.loginForm.href(null, {
+                        searchParams: { returnTo: routes.backgrounds.show.href({ id: bg.id }) },
+                      })}
+                    >
+                      Log in
+                    </a>{' '}
+                    to rate it.
                   </p>
-                </form>
-              ) : (
-                <p class="small muted" style={{ margin: 0 }}>
-                  <a
-                    href={routes.auth.loginForm.href(null, {
-                      searchParams: { returnTo: routes.backgrounds.show.href({ id: bg.id }) },
-                    })}
-                  >
-                    Log in
-                  </a>{' '}
-                  to rate it.
-                </p>
-              )}
-            </div>
+                )}
+              </div>
+            ) : null}
 
             {user?.role === 'admin' && !isOwner ? (
               <div class="panel">
                 <h2>Admin</h2>
                 <p class="small muted" style={{ margin: 0 }}>
-                  Shared by {bg.authorName}. Deleting it removes it for everyone.
+                  Shared by {bg.authorName}.{' '}
+                  {approved ? 'Deleting it removes it for everyone.' : ''}
                 </p>
+                {bg.status === 'pending' ? (
+                  <div class="row">
+                    <form method="post" action={routes.admin.approve.href({ id: bg.id })}>
+                      <button class="btn btn-primary" type="submit">
+                        Approve
+                      </button>
+                    </form>
+                    <a class="btn" href={routes.admin.review.href()}>
+                      Review page
+                    </a>
+                  </div>
+                ) : null}
                 <form method="post" action={routes.backgrounds.destroy.href({ id: bg.id })}>
                   <button class="btn btn-danger" type="submit">
                     Delete this background
                   </button>
                 </form>
               </div>
+            ) : null}
+
+            {user && approved && !isOwner ? (
+              <details class="tips">
+                <summary>Report this background</summary>
+                <form
+                  class="stack"
+                  style={{ gap: '8px', marginTop: '8px' }}
+                  method="post"
+                  action={routes.backgrounds.report.href({ id: bg.id })}
+                >
+                  <p style={{ margin: 0 }}>
+                    Something that shouldn’t be here, like a person who didn’t agree to it, or
+                    something confidential? Admins will take a look.
+                  </p>
+                  <input
+                    class="search"
+                    name="reason"
+                    required
+                    minLength={3}
+                    maxLength={300}
+                    placeholder="What’s wrong with it?"
+                    aria-label="What’s wrong with it?"
+                    style={{ maxWidth: 'none' }}
+                  />
+                  <div>
+                    <button class="btn btn-small btn-danger" type="submit">
+                      Report
+                    </button>
+                  </div>
+                </form>
+              </details>
             ) : null}
           </aside>
         </div>
@@ -169,7 +254,7 @@ export function UploadPage(
   handle: Handle<{
     user: Identity
     categories: CategorySummary[]
-    values?: { title?: string; category?: string; description?: string }
+    values?: { title?: string; category?: string; description?: string; rules?: boolean }
     errors?: FieldErrors
   }>,
 ) {
@@ -240,7 +325,7 @@ export function UploadPage(
               name="title"
               required
               maxLength={80}
-              placeholder="Open space, 5th floor"
+              placeholder="Morning light over the lake"
               defaultValue={values.title}
             />
           </Field>
@@ -274,6 +359,23 @@ export function UploadPage(
               defaultValue={values.description ?? ''}
             />
           </Field>
+          <div class="field">
+            <label class="checkbox">
+              <input type="checkbox" name="rules" checked={values.rules ?? false} required />
+              This follows the rules:
+            </label>
+            <ul class="hint rules">
+              <li>no recognisable people, unless they’ve agreed to it</li>
+              <li>nothing confidential: screens, whiteboards, documents, client names</li>
+              <li>I took it, or I’m allowed to share it</li>
+            </ul>
+            {errors.rules ? <span class="error">{errors.rules}</span> : null}
+          </div>
+          <p class="small muted" style={{ margin: 0 }}>
+            {user.role === 'admin'
+              ? 'You’re an admin, so it appears straight away.'
+              : 'An admin checks every background before it appears. You’ll get an email when it’s live.'}
+          </p>
           <div class="row">
             <button class="btn btn-primary" type="submit">
               Share it
@@ -292,9 +394,85 @@ export function MinePage(handle: Handle<{ user: Identity; items: BackgroundSumma
       <Document user={user} title="My uploads" section="mine">
         <div class="hero">
           <h1>My uploads</h1>
-          <p>Backgrounds you’ve shared. Open one to delete it.</p>
+          <p>
+            Backgrounds you’ve shared, including ones waiting for review. Open one to edit or delete
+            it.
+          </p>
         </div>
         <BackgroundGrid items={items} empty="You haven’t shared anything yet." />
+      </Document>
+    )
+  }
+}
+
+export function EditPage(
+  handle: Handle<{
+    user: Identity
+    background: BackgroundSummary
+    categories: CategorySummary[]
+    values?: { title?: string; category?: string; description?: string }
+    errors?: FieldErrors
+  }>,
+) {
+  return () => {
+    let { user, background: bg, categories, errors = {} } = handle.props
+    let values = {
+      title: bg.title,
+      category: bg.categoryName,
+      description: bg.description,
+      ...handle.props.values,
+    }
+    return (
+      <Document user={user} title={`Edit ${bg.title}`}>
+        <form class="form" method="post" action={routes.backgrounds.edit.href({ id: bg.id })}>
+          <div class="hero">
+            <h1>Edit background</h1>
+            <p>
+              <a href={routes.backgrounds.show.href({ id: bg.id })}>← Back to {bg.title}</a>
+            </p>
+          </div>
+          <Field label="Title" name="title" error={errors.title}>
+            <input id="title" name="title" required maxLength={80} defaultValue={values.title} />
+          </Field>
+          <Field
+            label="Category"
+            name="category"
+            error={errors.category}
+            hint="Pick an existing category or type a new one."
+          >
+            <input
+              id="category"
+              name="category"
+              list="categories"
+              required
+              maxLength={60}
+              defaultValue={values.category}
+              autoComplete="off"
+            />
+            <datalist id="categories">
+              {categories.map((category) => (
+                <option key={category.slug} value={category.name} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="Description (optional)" name="description" error={errors.description}>
+            <textarea
+              id="description"
+              name="description"
+              rows={3}
+              maxLength={500}
+              defaultValue={values.description ?? ''}
+            />
+          </Field>
+          <div class="row">
+            <button class="btn btn-primary" type="submit">
+              Save
+            </button>
+            <a class="btn btn-ghost" href={routes.backgrounds.show.href({ id: bg.id })}>
+              Cancel
+            </a>
+          </div>
+        </form>
       </Document>
     )
   }

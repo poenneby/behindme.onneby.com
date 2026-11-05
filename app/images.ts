@@ -47,6 +47,11 @@ export function imageHref(id: string, variant: ImageVariant, animated = false): 
   return `/images/${imageFileName(id, variant, animated)}`
 }
 
+/** The background id an image file name belongs to, or null. */
+export function imageId(fileName: string): string | null {
+  return FILE_NAME.exec(fileName)?.[1] ?? null
+}
+
 /** Maps a requested `/images/:file` name to a path on disk, or null if it isn't one of ours. */
 export function resolveImagePath(fileName: string): string | null {
   return FILE_NAME.test(fileName) ? path.join(imagesDir, fileName) : null

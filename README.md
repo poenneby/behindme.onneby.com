@@ -11,6 +11,15 @@ source directly.
 
 ![A background page: the photo, its rating, a download button and the one-line "Add to Teams" command](docs/screenshot.jpg)
 
+## Moderation
+
+New uploads stay hidden (pages, image files, downloads and install scripts)
+until an admin approves them at `/admin/review`. Admins are emailed about new
+uploads and reports, and uploaders about the decision. Admins' own uploads are
+published straight away. Members can report approved backgrounds; admins keep
+or remove them. Admins can also rename or merge categories at
+`/admin/categories`, and uploaders and admins can edit a background's details.
+
 ## Developing
 
 Needs Node ≥ 24.3.

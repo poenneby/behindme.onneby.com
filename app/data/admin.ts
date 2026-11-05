@@ -96,3 +96,16 @@ export async function deleteAccount(db: Database, id: string) {
   // Ratings and one-time tokens go with the account (on delete cascade).
   await db.delete(users, id)
 }
+
+/** Active admins to email about new uploads and reports. */
+export async function listAdminRecipients(
+  db: Database,
+): Promise<{ id: string; email: string; name: string }[]> {
+  let result = await db.exec(sql`
+    select id, email, name, role from users
+    where verified_at is not null and disabled_at is null
+  `)
+  return (result.rows ?? [])
+    .filter((row) => row.role === 'admin' || isBuiltInAdmin(String(row.email)))
+    .map((row) => ({ id: String(row.id), email: String(row.email), name: String(row.name) }))
+}
