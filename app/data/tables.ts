@@ -57,6 +57,12 @@ export const backgrounds = table({
     created_at: c.integer(),
     /** 1 for an animated GIF, 0 for a still photo. */
     animated: c.integer(),
+    /** 'pending' until an admin reviews it, then 'approved' or 'rejected'. */
+    status: c.text(),
+    reviewed_at: c.integer().nullable(),
+    reviewed_by: c.text().nullable(),
+    /** Optional reason shown to the uploader when it isn't approved. */
+    rejection_reason: c.text().nullable(),
   },
 })
 
@@ -68,6 +74,18 @@ export const ratings = table({
     user_id: c.text(),
     stars: c.integer(),
     created_at: c.integer(),
+  },
+})
+
+export const reports = table({
+  name: 'reports',
+  columns: {
+    id: c.text(),
+    background_id: c.text(),
+    user_id: c.text(),
+    reason: c.text(),
+    created_at: c.integer(),
+    resolved_at: c.integer().nullable(),
   },
 })
 

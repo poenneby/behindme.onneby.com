@@ -92,6 +92,11 @@ async function signUp(request: ReturnType<typeof browser>, email: string) {
   assert.equal(activated.status, 303)
 }
 
+/** Approves a background directly, for tests that aren't about moderation. */
+async function approveInDb(id: string) {
+  await db.exec(sql`update backgrounds set status = 'approved' where id = ${id}`)
+}
+
 async function userId(email: string) {
   let result = await db.exec(sql`select id from users where email = ${email}`)
   let id = result.rows?.[0]?.id
@@ -121,7 +126,7 @@ describe('office backdrops', () => {
     await signUp(request, 'small@example.com')
     let response = await request(
       '/upload',
-      form({ photo: await photo(800, 600), title: 'Tiny', category: 'Nature' }),
+      form({ rules: 'on', photo: await photo(800, 600), title: 'Tiny', category: 'Nature' }),
     )
     assert.equal(response.status, 400)
     assert.match(await response.text(), /at least 1280×720/)
@@ -133,6 +138,7 @@ describe('office backdrops', () => {
     let upload = await owner(
       '/upload',
       form({
+        rules: 'on',
         photo: await photo(3000, 2000),
         title: "Rooftop'; Remove-Item C:\\ -Recurse #",
         category: 'Architecture',
@@ -141,6 +147,7 @@ describe('office backdrops', () => {
     assert.equal(upload.status, 303)
     let showPath = upload.headers.get('Location')!
     let id = showPath.split('/').pop()!
+    await approveInDb(id)
 
     // Shared links unfurl with the photo itself, as an absolute URL.
     let page = await (await owner(showPath)).text()
@@ -197,11 +204,12 @@ describe('office backdrops', () => {
     let original = await animatedGif(800, 600, 4)
     let upload = await request(
       '/upload',
-      form({ photo: original, title: 'Lift doors', category: 'Nature' }),
+      form({ rules: 'on', photo: original, title: 'Lift doors', category: 'Nature' }),
     )
     assert.equal(upload.status, 303)
     let showPath = upload.headers.get('Location')!
     let id = showPath.split('/').pop()!
+    await approveInDb(id)
 
     let gif = await request(`/images/${id}.gif`)
     assert.equal(gif.status, 200)
@@ -239,7 +247,12 @@ describe('office backdrops', () => {
     await signUp(request, 'tiny@example.com')
     let response = await request(
       '/upload',
-      form({ photo: await animatedGif(320, 240, 3), title: 'Tiny', category: 'Nature' }),
+      form({
+        rules: 'on',
+        photo: await animatedGif(320, 240, 3),
+        title: 'Tiny',
+        category: 'Nature',
+      }),
     )
     assert.equal(response.status, 400)
     assert.match(await response.text(), /need at least 640×360/)
@@ -250,7 +263,12 @@ describe('office backdrops', () => {
     await signUp(request, 'still@example.com')
     let upload = await request(
       '/upload',
-      form({ photo: await animatedGif(1600, 900, 1), title: 'Still', category: 'Nature' }),
+      form({
+        rules: 'on',
+        photo: await animatedGif(1600, 900, 1),
+        title: 'Still',
+        category: 'Nature',
+      }),
     )
     assert.equal(upload.status, 303)
     let id = upload.headers.get('Location')!.split('/').pop()!
@@ -475,7 +493,7 @@ describe('office backdrops', () => {
       await signUp(member, email)
       let upload = await member(
         '/upload',
-        form({ photo: await photo(1600, 900), title: 'Last day', category: 'Nature' }),
+        form({ rules: 'on', photo: await photo(1600, 900), title: 'Last day', category: 'Nature' }),
       )
       let showPath = upload.headers.get('Location')!
       let backgroundId = showPath.split('/').pop()!
@@ -561,14 +579,207 @@ describe('office backdrops', () => {
       assert.doesNotMatch(await (await boss('/admin/users?q=boss@')).text(), /Other domain/)
     })
 
+    /** Uploads a background as `request` and returns its id. */
+    async function share(request: ReturnType<typeof browser>, title: string, category = 'Nature') {
+      let upload = await request(
+        '/upload',
+        form({ rules: 'on', photo: await photo(1600, 900), title, category }),
+      )
+      assert.equal(upload.status, 303, `upload of ${title}`)
+      return upload.headers.get('Location')!.split('/').pop()!
+    }
+
+    it('keeps new uploads hidden until an admin approves them', async () => {
+      let member = browser()
+      await signUp(member, 'uploader@example.com')
+      let id = await share(member, 'Quiet lake')
+      let review = outbox.findLast((m) => m.subject === 'New background to review: Quiet lake')
+      assert.ok(review, 'admins are emailed')
+      assert.equal(review.to, 'boss@example.com')
+
+      // Nobody else can see it, or get it any other way.
+      let stranger = browser()
+      for (let path of [
+        `/b/${id}`,
+        `/images/${id}.jpg`,
+        `/images/${id}.webp`,
+        `/images/${id}_thumb.jpg`,
+        `/b/${id}/download`,
+        `/b/${id}/teams.ps1`,
+        `/b/${id}/teams.sh`,
+      ]) {
+        let response = await stranger(path)
+        assert.equal(response.status, 404, path)
+      }
+      let hidden = await stranger(`/images/${id}.jpg`)
+      assert.equal(hidden.headers.get('Cache-Control'), 'no-store', 'a 404 must not be cached')
+      assert.doesNotMatch(await (await stranger('/')).text(), new RegExp(id))
+      assert.doesNotMatch(await (await stranger('/categories/nature')).text(), new RegExp(id))
+      // …and the installer has nothing to install.
+      assert.doesNotMatch(
+        await (await stranger('/categories/nature/teams.sh')).text(),
+        new RegExp(id),
+      )
+
+      // The uploader sees it, marked as waiting, and it isn't cached.
+      let own = await member(`/b/${id}`)
+      assert.equal(own.status, 200)
+      assert.equal(own.headers.get('Cache-Control'), 'private, no-store')
+      assert.match(await own.text(), /Waiting for review/)
+      let ownImage = await member(`/images/${id}.jpg`)
+      assert.equal(ownImage.status, 200)
+      assert.equal(ownImage.headers.get('Cache-Control'), 'private, no-store')
+      assert.match(await (await member('/mine')).text(), /Waiting for review/)
+
+      // An admin approves it from the review page.
+      assert.match(await (await boss('/admin/review')).text(), /Quiet lake/)
+      assert.equal((await boss(`/admin/review/${id}/approve`, { method: 'POST' })).status, 303)
+      assert.equal(outbox.at(-1)?.to, 'uploader@example.com')
+      assert.equal(outbox.at(-1)?.subject, 'Your background “Quiet lake” is live')
+      assert.equal((await stranger(`/b/${id}`)).status, 200)
+      let image = await stranger(`/images/${id}.jpg`)
+      assert.equal(image.headers.get('Cache-Control'), 'public, max-age=3600')
+      let after = await (await boss('/admin/review')).text()
+      assert.match(after, /Approved “Quiet lake”/)
+      assert.ok(!after.includes(`/admin/review/${id}/approve`), 'no longer waiting')
+    })
+
+    it('tells the uploader when a background isn’t approved, and why', async () => {
+      let member = browser()
+      await signUp(member, 'blurry@example.com')
+      let id = await share(member, 'Blurry street', 'City')
+      await boss(`/admin/review/${id}/reject`, form({ reason: 'Too blurry to use' }))
+      let mail = outbox.at(-1)!
+      assert.equal(mail.to, 'blurry@example.com')
+      assert.match(mail.text, /wasn’t approved\. The reason given: Too blurry to use/)
+      assert.match(await (await member(`/b/${id}`)).text(), /Not approved[\s\S]*Too blurry to use/)
+      assert.equal((await browser()(`/b/${id}`)).status, 404)
+      assert.match(await (await member('/mine')).text(), /Not approved/)
+    })
+
+    it('publishes admins’ own uploads straight away', async () => {
+      let before = outbox.length
+      let id = await share(boss, 'Admin sunrise')
+      assert.equal((await browser()(`/b/${id}`)).status, 200)
+      assert.equal(outbox.length, before, 'no review email for admins’ uploads')
+    })
+
+    it('needs the upload rules accepted', async () => {
+      let member = browser()
+      await signUp(member, 'rulebreaker@example.com')
+      let response = await member(
+        '/upload',
+        form({ photo: await photo(1600, 900), title: 'No rules', category: 'Nature' }),
+      )
+      assert.equal(response.status, 400)
+      assert.match(await response.text(), /Please confirm the photo follows these rules/)
+    })
+
+    it('lets members report a background, and admins act on it', async () => {
+      let owner = browser()
+      await signUp(owner, 'reported@example.com')
+      let id = await share(owner, 'Desk with a whiteboard')
+      await approveInDb(id)
+      let reporter = browser()
+      await signUp(reporter, 'reporter@example.com')
+
+      // Not your own, and not before it's public.
+      assert.equal((await owner(`/b/${id}/report`, form({ reason: 'mine' }))).status, 403)
+      let pending = await share(owner, 'Still pending')
+      assert.equal((await reporter(`/b/${pending}/report`, form({ reason: 'hmm' }))).status, 404)
+
+      let report = await reporter(`/b/${id}/report`, form({ reason: 'Client names on the board' }))
+      assert.equal(report.status, 303)
+      assert.match(await (await reporter(`/b/${id}`)).text(), /An admin will take a look/)
+      assert.equal(outbox.at(-1)?.subject, 'Background reported: Desk with a whiteboard')
+      let review = await (await boss('/admin/review')).text()
+      assert.match(review, /Client names on the board/)
+
+      // Keeping it closes the report…
+      await boss(`/admin/review/${id}/dismiss`, { method: 'POST' })
+      assert.doesNotMatch(await (await boss('/admin/review')).text(), /Client names on the board/)
+      assert.equal((await browser()(`/b/${id}`)).status, 200)
+      // …removing it deletes it.
+      await reporter(`/b/${id}/report`, form({ reason: 'Still has client names' }))
+      await boss(`/admin/review/${id}/remove`, { method: 'POST' })
+      assert.equal((await browser()(`/b/${id}`)).status, 404)
+      assert.equal((await boss(`/images/${id}.jpg`)).status, 404)
+    })
+
+    it('keeps reviewing and category management to admins', async () => {
+      let member = browser()
+      await signUp(member, 'notadmin@example.com')
+      let id = await share(member, 'Self approved?')
+      for (let [path, init] of [
+        [`/admin/review/${id}/approve`, { method: 'POST' }],
+        [`/admin/review/${id}/reject`, { method: 'POST' }],
+        ['/admin/review', {}],
+        ['/admin/categories', {}],
+        ['/admin/categories/nature/rename', form({ name: 'Mine now' })],
+      ] as const) {
+        assert.equal((await member(path, init)).status, 403, path)
+      }
+      assert.equal((await browser()(`/b/${id}`)).status, 404)
+    })
+
+    it('lets the uploader and admins edit a background, but nobody else', async () => {
+      let owner = browser()
+      await signUp(owner, 'editor@example.com')
+      let id = await share(owner, 'Typo in teh title')
+      await approveInDb(id)
+      let edited = await owner(
+        `/b/${id}/edit`,
+        form({ title: 'Fixed title', category: 'Seaside', description: 'Waves' }),
+      )
+      assert.equal(edited.status, 303)
+      let page = await (await owner(`/b/${id}`)).text()
+      assert.match(page, /Fixed title/)
+      assert.match(page, /href="\/categories\/seaside"/)
+
+      let other = browser()
+      await signUp(other, 'meddler@example.com')
+      assert.equal((await other(`/b/${id}/edit`)).status, 403)
+      assert.equal(
+        (await other(`/b/${id}/edit`, form({ title: 'Mine', category: 'Nature' }))).status,
+        403,
+      )
+      let byAdmin = await boss(`/b/${id}/edit`, form({ title: 'Tidied', category: 'Seaside' }))
+      assert.equal(byAdmin.status, 303)
+      assert.match(await (await browser()(`/b/${id}`)).text(), /Tidied/)
+    })
+
+    it('renames categories, and merges them when the name is taken', async () => {
+      let a = await share(boss, 'Fog', 'Natur')
+      let b = await share(boss, 'Rain', 'Wether')
+      // A typo fixed into an existing category merges the two.
+      let merged = await boss('/admin/categories/natur/rename', form({ name: 'Nature' }))
+      assert.equal(merged.status, 303)
+      assert.match(
+        await (await boss('/admin/categories')).text(),
+        /Moved 1 background from “Natur” into “Nature”/,
+      )
+      assert.match(await (await browser()(`/b/${a}`)).text(), /href="\/categories\/nature"/)
+      assert.equal((await browser()('/categories/natur')).status, 404)
+      // A new name just renames it, address included.
+      await boss('/admin/categories/wether/rename', form({ name: 'Weather' }))
+      assert.match(await (await browser()(`/b/${b}`)).text(), /href="\/categories\/weather"/)
+      assert.match(await (await browser()('/categories/weather')).text(), /Weather/)
+    })
+
     it('lets admins, but not other members, delete any background', async () => {
       let owner = browser()
       await signUp(owner, 'owner2@example.com')
       let upload = await owner(
         '/upload',
-        form({ photo: await photo(1600, 900), title: 'Not allowed', category: 'Nature' }),
+        form({
+          rules: 'on',
+          photo: await photo(1600, 900),
+          title: 'Not allowed',
+          category: 'Nature',
+        }),
       )
       let showPath = upload.headers.get('Location')!
+      await approveInDb(showPath.split('/').pop()!)
       let other = browser()
       await signUp(other, 'other@example.com')
       assert.equal((await other(`${showPath}/delete`, { method: 'POST' })).status, 403)

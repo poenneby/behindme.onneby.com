@@ -29,6 +29,12 @@ export function BackgroundCard(handle: Handle<{ item: BackgroundSummary }>) {
         <img src={imageHref(item.id, 'preview')} alt="" loading="lazy" width="960" height="540" />
         <div class="card-body">
           <span class="card-title">
+            {item.status === 'pending' ? (
+              <span class="badge badge-muted">Waiting for review</span>
+            ) : null}
+            {item.status === 'rejected' ? (
+              <span class="badge badge-muted">Not approved</span>
+            ) : null}
             {item.animated ? <span class="badge">Animated</span> : null}
             {item.title}
           </span>
